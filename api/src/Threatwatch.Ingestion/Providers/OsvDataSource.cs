@@ -134,6 +134,7 @@ public class OsvDataSource(
     {
         var result = new List<GcsObject>();
         string? pageToken = null;
+        var pages = 0;
 
         do
         {
@@ -151,6 +152,7 @@ public class OsvDataSource(
                 break;
             }
 
+            pages++;
             foreach (var item in listing.Items)
             {
                 if (item.Name.EndsWith("/all.zip", StringComparison.OrdinalIgnoreCase))
@@ -162,6 +164,13 @@ public class OsvDataSource(
                 {
                     result.Add(item);
                 }
+            }
+
+            if (pages % 10 == 0)
+            {
+                logger.LogInformation(
+                    "OSV sync: listed {Pages} {Ecosystem} pages, {Changed} objects newer than the watermark.",
+                    pages, ecosystem, result.Count);
             }
 
             pageToken = listing.NextPageToken;

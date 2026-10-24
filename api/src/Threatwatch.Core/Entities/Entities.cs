@@ -68,6 +68,9 @@ public class UserAccount : IdentityUser<Guid>
     public required string DisplayName { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 
+    /// <summary>Read cursor for in-app notifications; null means "nothing marked read yet".</summary>
+    public DateTimeOffset? LastNotificationsReadAt { get; set; }
+
     public ICollection<UserFollow> Follows { get; set; } = new List<UserFollow>();
 }
 

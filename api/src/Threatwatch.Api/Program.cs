@@ -135,6 +135,7 @@ builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<VulnerabilityQueryService>();
 builder.Services.AddScoped<TechnologyQueryService>();
 builder.Services.AddScoped<FollowService>();
+builder.Services.AddScoped<NotificationService>();
 
 // Ingestion
 builder.Services.AddScoped<VulnerabilityUpserter>();
@@ -152,6 +153,7 @@ builder.Services.AddSecurityDataSource<OsvDataSource>(
     new Uri("https://storage.googleapis.com/"),
     attemptTimeout: TimeSpan.FromMinutes(2));
 builder.Services.Configure<OsvOptions>(builder.Configuration.GetSection("Osv"));
+builder.Services.AddSingleton<IngestionRunner>();
 builder.Services.AddHostedService<IngestionWorker>();
 builder.Services.AddHostedService<OsvBackfillService>();
 builder.Services.AddHostedService<DbSeederHostedService>();

@@ -6,13 +6,17 @@ using Microsoft.AspNetCore.RateLimiting;
 using Threatwatch.Api.Infrastructure;
 using Threatwatch.Core.Entities;
 using Threatwatch.Core.Identity;
+using Threatwatch.Ingestion.Workers;
 
 namespace Threatwatch.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/auth")]
 [EnableRateLimiting("auth")]
-public class AuthController(UserManager<UserAccount> users, SignInManager<UserAccount> signIn) : ControllerBase
+public class AuthController(
+    UserManager<UserAccount> users,
+    SignInManager<UserAccount> signIn,
+    IngestionRunner ingestion) : ControllerBase
 {
     public const string BrowserHeader = "X-Threatwatch-Request";
 
@@ -74,6 +78,7 @@ public class AuthController(UserManager<UserAccount> users, SignInManager<UserAc
         }
 
         await signIn.SignInAsync(user, isPersistent: true);
+        ingestion.RequestSync();
         return Ok(ToPayload(user));
     }
 
@@ -114,6 +119,7 @@ public class AuthController(UserManager<UserAccount> users, SignInManager<UserAc
             return InvalidCredentials();
         }
 
+        ingestion.RequestSync();
         return Ok(ToPayload(user));
     }
 
