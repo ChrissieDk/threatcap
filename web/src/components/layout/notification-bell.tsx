@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { SeverityBadge } from "@/components/severity-badge"
 import { formatRelativeTime } from "@/lib/formatters"
+import { REQUEST_HEADER } from "@/lib/auth"
 import type { Severity } from "@/lib/api/types"
 
 type NotificationItem = {
@@ -71,7 +72,10 @@ export function NotificationBell() {
   async function markAllRead() {
     setPending(true)
     try {
-      const res = await fetch("/api/v1/notifications/read", { method: "POST" })
+      const res = await fetch("/api/v1/notifications/read", {
+        method: "POST",
+        headers: { [REQUEST_HEADER]: "1" },
+      })
       if (res.ok) {
         setSummary((await res.json()) as NotificationSummary)
       }

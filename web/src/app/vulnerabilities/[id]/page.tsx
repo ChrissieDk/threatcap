@@ -6,6 +6,7 @@ import type { Technology, VulnerabilityDetail } from "@/lib/api/types"
 import { catalogMatchForPackage } from "@/lib/tech-match"
 import { FollowButton } from "@/components/technologies/follow-button"
 import { SeverityBadge } from "@/components/severity-badge"
+import { ProductBadge } from "@/components/product-badge"
 import { Badge } from "@/components/ui/badge"
 import {
   Table,
@@ -23,6 +24,12 @@ const EVENT_LABELS: Record<VulnerabilityDetail["events"][number]["eventType"], s
   KnownExploitedAdded: "Added to CISA KEV",
   FixAvailable: "Fix available",
   AdvisoryUpdated: "Advisory updated",
+}
+
+function ordinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"]
+  const v = n % 100
+  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`
 }
 
 export default async function VulnerabilityDetailPage({
@@ -69,13 +76,27 @@ export default async function VulnerabilityDetailPage({
           </h1>
           <SeverityBadge severity={vuln.severity} />
           {vuln.isWithdrawn && <Badge variant="secondary">Withdrawn</Badge>}
+          {(vuln.primaryVendor || vuln.primaryProduct) && (
+            <ProductBadge
+              primaryVendor={vuln.primaryVendor}
+              primaryProduct={vuln.primaryProduct}
+              productType={vuln.productType}
+            />
+          )}
           <span className="text-muted-foreground text-xs">
             {vuln.cvssScore !== null
               ? `CVSS ${vuln.cvssScore.toFixed(1)}${
                   vuln.cvssSource ? ` (${vuln.cvssSource})` : ""
                 }`
               : "No CVSS score"}
+            {vuln.epssPercentile !== null &&
+              ` · EPSS: ${ordinal(Math.round(vuln.epssPercentile * 100))} percentile`}
           </span>
+          {vuln.priorityScore !== null && (
+            <Badge variant="secondary" title="Priority score (CVSS × EPSS/KEV weighting)">
+              Priority {vuln.priorityScore.toFixed(1)}
+            </Badge>
+          )}
         </div>
         <p className="mt-1.5 text-sm">{vuln.title}</p>
       </div>

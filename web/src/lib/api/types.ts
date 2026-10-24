@@ -30,6 +30,8 @@ export type DailyPoint = {
 
 export type Severity = "Critical" | "High" | "Medium" | "Low" | "Unknown";
 
+export type ProductType = "Library" | "App" | "Os" | "Service" | "Other";
+
 export type VulnerabilityListItem = {
   id: string; // uuid
   canonicalId: string;
@@ -42,6 +44,12 @@ export type VulnerabilityListItem = {
   hasFix: boolean;
   ecosystems: string[];
   sources: string[];
+  primaryVendor: string | null;
+  primaryProduct: string | null;
+  productType: ProductType | null;
+  epssScore: number | null;
+  epssPercentile: number | null;
+  priorityScore: number | null;
 };
 
 export type VulnerabilityListResponse = {
@@ -60,6 +68,12 @@ export type VulnerabilityDetail = {
   cvssScore: number | null;
   cvssVector: string | null;
   cvssSource: string | null;
+  primaryVendor: string | null;
+  primaryProduct: string | null;
+  productType: ProductType | null;
+  epssScore: number | null;
+  epssPercentile: number | null;
+  priorityScore: number | null;
   publishedAt: string;
   modifiedAt: string;
   isKnownExploited: boolean;
@@ -117,6 +131,21 @@ export type FollowedTechnology = {
 };
 
 export type TechnologyDetail = Technology;
+
+export type ActNowItem = {
+  id: string;
+  canonicalId: string;
+  title: string;
+  severity: Severity;
+  priorityScore: number | null;
+  primaryVendor: string | null;
+  primaryProduct: string | null;
+  productType: ProductType | null;
+  epssScore: number | null;
+  epssPercentile: number | null;
+  isKnownExploited: boolean;
+  publishedAt: string;
+};
 
 export type ProviderHealth = {
   source: string;

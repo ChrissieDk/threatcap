@@ -29,6 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { SeverityBadge } from "@/components/severity-badge"
+import { ProductBadge } from "@/components/product-badge"
 import { EmptyState } from "@/components/empty-state"
 import { formatCvss, formatRelativeTime } from "@/lib/formatters"
 import type { VulnerabilityListItem, VulnerabilityListResponse } from "@/lib/api/types"
@@ -197,6 +198,18 @@ export function VulnExplorer() {
             <span className="text-muted-foreground text-xs">
               {c.getValue().join(", ") || "—"}
             </span>
+          ),
+        }),
+        col.display({
+          id: "affected",
+          header: "Affected",
+          cell: (c) => (
+            <ProductBadge
+              primaryVendor={c.row.original.primaryVendor}
+              primaryProduct={c.row.original.primaryProduct}
+              productType={c.row.original.productType}
+              className="max-w-36"
+            />
           ),
         }),
         col.accessor("isKnownExploited", {

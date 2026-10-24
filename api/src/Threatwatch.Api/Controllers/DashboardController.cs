@@ -44,4 +44,23 @@ public class DashboardController(DashboardService dashboard) : ControllerBase
 
         return Ok(await dashboard.GetDailyAsync(metric, days, CurrentUser.Id(User), following, ct));
     }
+
+    [HttpGet("act-now")]
+    public async Task<IActionResult> ActNow(
+        [FromQuery] int top = 10,
+        [FromQuery] int days = 30,
+        CancellationToken ct = default)
+    {
+        if (top is < 1 or > 100)
+        {
+            return ApiError.ToResult(ApiError.InvalidArgument("'top' must be between 1 and 100."), StatusCodes.Status400BadRequest);
+        }
+
+        if (days is < 1 or > 365)
+        {
+            return ApiError.ToResult(ApiError.InvalidArgument("'days' must be between 1 and 365."), StatusCodes.Status400BadRequest);
+        }
+
+        return Ok(await dashboard.GetActNowAsync(top, days, CurrentUser.Id(User), ct));
+    }
 }

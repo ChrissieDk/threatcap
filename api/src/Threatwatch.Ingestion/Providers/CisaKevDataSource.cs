@@ -77,7 +77,9 @@ public class CisaKevDataSource(
                 description: entry.ShortDescription,
                 exploitedSince: dateAdded,
                 sourceUrl: CatalogUrl,
-                ct: ct);
+                ct: ct,
+                vendorProject: entry.VendorProject,
+                product: entry.Product);
 
             processed++;
         }

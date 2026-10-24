@@ -1,4 +1,7 @@
+using System.IO.Compression;
+using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,10 +27,15 @@ public class OsvOptions
 
 /// <summary>
 /// Synchronizes OSV.dev records via the official public data-export bucket
-/// (gs://osv-vulnerabilities, served over HTTPS by GCS). The /v1/query API does not
-/// support bulk "modified since" enumeration, so each run lists bucket objects and
-/// downloads only those whose GCS "updated" timestamp is inside the retention window
-/// (default 90 days) and newer than the stored watermark.
+/// (gs://osv-vulnerabilities, served over HTTPS by GCS). Each run downloads the
+/// per-ecosystem <c>{ecosystem}/all.zip</c> archive — one request containing every
+/// record as an individual JSON entry — and upserts the records whose
+/// <c>modified</c> timestamp is inside the retention window (default 90 days) and
+/// newer than the stored watermark. Ecosystems are processed in parallel with a
+/// bounded degree of parallelism; each parallel branch runs in its own DI scope
+/// because EF Core contexts are not thread-safe. If the archive download fails for
+/// an ecosystem, that ecosystem alone falls back to listing bucket objects and
+/// downloading each changed record individually.
 ///
 /// Records can also be ingested from a local directory via <see cref="OsvBackfillService"/>
 /// (env OSV_BACKFILL_DIR), which is the same JSON format.
@@ -35,11 +43,13 @@ public class OsvOptions
 public class OsvDataSource(
     HttpClient httpClient,
     IOptions<OsvOptions> options,
+    IServiceScopeFactory scopeFactory,
     ILogger<OsvDataSource> logger) : ISecurityDataSource
 {
     private const string BucketObjectUrl = "/osv-vulnerabilities/";
     private const string BucketListUrl = "/storage/v1/b/osv-vulnerabilities/o";
     private const int ProgressInterval = 500;
+    private const int MaxParallelEcosystems = 3;
 
     /// <summary>
     /// Escape each path segment. Encoding the whole object name would turn
@@ -60,73 +70,239 @@ public class OsvDataSource(
     public async Task<IngestionResult> SyncAsync(IServiceScope scope, CancellationToken ct)
     {
         var db = scope.ServiceProvider.GetRequiredService<ThreatwatchDbContext>();
-        var upserter = scope.ServiceProvider.GetRequiredService<VulnerabilityUpserter>();
 
         var state = await IngestionStateHelper.GetOrCreateAsync(db, Source, ct);
         var cutoff = DateTimeOffset.UtcNow.AddDays(-Math.Max(1, options.Value.RetentionDays));
         var storedWatermark = state.WatermarkParsed();
         var watermark = storedWatermark is { } stored && stored >= cutoff ? stored : cutoff;
 
+        using var semaphore = new SemaphoreSlim(MaxParallelEcosystems);
+        var branches = options.Value.Ecosystems.Select(async ecosystem =>
+        {
+            await semaphore.WaitAsync(ct);
+            try
+            {
+                return await SyncEcosystemAsync(ecosystem, watermark, cutoff, ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogError(ex, "OSV sync: ecosystem {Ecosystem} failed; continuing with the others.", ecosystem);
+                return new EcosystemResult(0, 0, watermark);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        });
+
+        var results = await Task.WhenAll(branches);
+        var processed = results.Sum(r => r.Processed);
+        var skipped = results.Sum(r => r.Skipped);
+        var maxSeen = results.Select(r => r.MaxSeen).DefaultIfEmpty(watermark).Max();
+
+        logger.LogInformation(
+            "OSV sync processed {Count} records, skipped {Skipped} outside the {Days}-day window or older than the watermark (watermark {Watermark}).",
+            processed, skipped, options.Value.RetentionDays, maxSeen);
+        return IngestionResult.Success(processed, maxSeen.ToString("O"));
+    }
+
+    private async Task<EcosystemResult> SyncEcosystemAsync(
+        string ecosystem, DateTimeOffset watermark, DateTimeOffset cutoff, CancellationToken ct)
+    {
+        // Each parallel branch resolves its own scoped services; the incoming scope
+        // (and its DbContext) is not safe to share across worker threads.
+        await using var branchScope = scopeFactory.CreateAsyncScope();
+        var upserter = branchScope.ServiceProvider.GetRequiredService<VulnerabilityUpserter>();
+
+        logger.LogInformation(
+            "OSV sync: downloading {Ecosystem}/all.zip modified after {Watermark}.", ecosystem, watermark);
+
+        var zipPath = await DownloadAllZipAsync(ecosystem, ct);
+        if (zipPath is not null)
+        {
+            try
+            {
+                return await ProcessAllZipAsync(ecosystem, zipPath, watermark, cutoff, upserter, ct);
+            }
+            catch (InvalidDataException ex)
+            {
+                logger.LogWarning(ex, "OSV sync: {Ecosystem}/all.zip is corrupt; falling back to listing.", ecosystem);
+            }
+            finally
+            {
+                TryDeleteTempFile(zipPath);
+            }
+        }
+
+        logger.LogWarning(
+            "OSV sync: {Ecosystem}/all.zip unavailable; falling back to object listing.", ecosystem);
+        return await SyncEcosystemByListingAsync(ecosystem, watermark, cutoff, upserter, ct);
+    }
+
+    /// <summary>Stream the archive to a temp file; ZipArchive requires a seekable stream.</summary>
+    private async Task<string?> DownloadAllZipAsync(string ecosystem, CancellationToken ct)
+    {
+        var tempPath = Path.GetTempFileName();
+        try
+        {
+            using var response = await httpClient.GetAsync(
+                BucketObjectUrl + Uri.EscapeDataString(ecosystem) + "/all.zip",
+                HttpCompletionOption.ResponseHeadersRead, ct);
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                TryDeleteTempFile(tempPath);
+                return null;
+            }
+
+            response.EnsureSuccessStatusCode();
+            await using (var file = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true))
+            {
+                await response.Content.CopyToAsync(file, ct);
+            }
+
+            return tempPath;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "OSV sync: failed to download {Ecosystem}/all.zip.", ecosystem);
+            TryDeleteTempFile(tempPath);
+            return null;
+        }
+    }
+
+    private async Task<EcosystemResult> ProcessAllZipAsync(
+        string ecosystem, string zipPath, DateTimeOffset watermark, DateTimeOffset cutoff,
+        VulnerabilityUpserter upserter, CancellationToken ct)
+    {
         var processed = 0;
         var skipped = 0;
         var maxSeen = watermark;
 
-        foreach (var ecosystem in options.Value.Ecosystems)
+        await using var file = new FileStream(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        using var archive = new ZipArchive(file, ZipArchiveMode.Read);
+
+        logger.LogInformation(
+            "OSV sync: {Ecosystem} archive has {Count} entries.", ecosystem, archive.Entries.Count);
+
+        foreach (var entry in archive.Entries)
         {
             ct.ThrowIfCancellationRequested();
-            logger.LogInformation(
-                "OSV sync: listing {Ecosystem} objects updated after {Watermark}.", ecosystem, watermark);
-
-            var changed = await ListChangedRecordsAsync(ecosystem, watermark, ct);
-            logger.LogInformation(
-                "OSV sync: {Ecosystem} has {Count} objects in the retention window.", ecosystem, changed.Count);
-
-            foreach (var obj in changed)
+            if (entry.Length == 0 || !entry.FullName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
             {
-                ct.ThrowIfCancellationRequested();
-                if (DateTimeOffset.TryParse(obj.Updated, out var updated) && updated > maxSeen)
+                continue;
+            }
+
+            try
+            {
+                await using var entryStream = entry.Open();
+                var record = await JsonSerializer.DeserializeAsync<OsvRecord>(entryStream, cancellationToken: ct);
+                if (record is null)
                 {
-                    maxSeen = updated;
+                    continue;
                 }
 
-                try
+                // Zip entries don't carry per-object GCS "updated" metadata, so the
+                // record's own "modified" timestamp is the only watermark signal.
+                var modified = record.ModifiedParsed;
+                if (modified is not { } seen || seen <= watermark)
                 {
-                    var record = await httpClient.GetFromJsonAsync<OsvRecord>(ObjectUrl(obj.Name), ct);
-                    if (record is null)
-                    {
-                        continue;
-                    }
-
-                    if (!IsWithinRetention(record, cutoff))
-                    {
-                        skipped++;
-                        continue;
-                    }
-
-                    await upserter.UpsertOsvRecordAsync(record, ct);
-                    processed++;
-                    if (processed % ProgressInterval == 0)
-                    {
-                        logger.LogInformation("OSV sync imported {Count} records so far.", processed);
-                    }
+                    skipped++;
+                    continue;
                 }
-                catch (Exception ex) when (ex is not OperationCanceledException)
+
+                if (!IsWithinRetention(record, cutoff))
                 {
-                    logger.LogWarning(ex, "Failed to ingest OSV record {Name}; continuing.", obj.Name);
+                    skipped++;
+                    continue;
                 }
+
+                await upserter.UpsertOsvRecordAsync(record, ct);
+                processed++;
+                if (seen > maxSeen)
+                {
+                    maxSeen = seen;
+                }
+
+                if (processed % ProgressInterval == 0)
+                {
+                    logger.LogInformation("OSV sync imported {Count} records so far.", processed);
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning(ex, "Failed to ingest OSV archive entry {Name}; continuing.", entry.FullName);
             }
         }
 
+        return new EcosystemResult(processed, skipped, maxSeen);
+    }
+
+    private async Task<EcosystemResult> SyncEcosystemByListingAsync(
+        string ecosystem, DateTimeOffset watermark, DateTimeOffset cutoff,
+        VulnerabilityUpserter upserter, CancellationToken ct)
+    {
+        var processed = 0;
+        var skipped = 0;
+        var maxSeen = watermark;
+
+        var changed = await ListChangedRecordsAsync(ecosystem, watermark, ct);
         logger.LogInformation(
-            "OSV sync processed {Count} records, skipped {Skipped} outside the {Days}-day window (watermark {Watermark}).",
-            processed, skipped, options.Value.RetentionDays, maxSeen);
-        return IngestionResult.Success(processed, maxSeen.ToString("O"));
+            "OSV sync: {Ecosystem} has {Count} objects in the retention window.", ecosystem, changed.Count);
+
+        foreach (var obj in changed)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (DateTimeOffset.TryParse(obj.Updated, out var updated) && updated > maxSeen)
+            {
+                maxSeen = updated;
+            }
+
+            try
+            {
+                var record = await httpClient.GetFromJsonAsync<OsvRecord>(ObjectUrl(obj.Name), ct);
+                if (record is null)
+                {
+                    continue;
+                }
+
+                if (!IsWithinRetention(record, cutoff))
+                {
+                    skipped++;
+                    continue;
+                }
+
+                await upserter.UpsertOsvRecordAsync(record, ct);
+                processed++;
+                if (processed % ProgressInterval == 0)
+                {
+                    logger.LogInformation("OSV sync imported {Count} records so far.", processed);
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning(ex, "Failed to ingest OSV record {Name}; continuing.", obj.Name);
+            }
+        }
+
+        return new EcosystemResult(processed, skipped, maxSeen);
     }
 
     private static bool IsWithinRetention(OsvRecord record, DateTimeOffset cutoff)
     {
         var activity = record.ModifiedParsed ?? record.PublishedParsed;
         return activity is not null && activity >= cutoff;
+    }
+
+    private static void TryDeleteTempFile(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (IOException)
+        {
+            // Best-effort cleanup; the OS reclaims temp files eventually.
+        }
     }
 
     private async Task<List<GcsObject>> ListChangedRecordsAsync(
@@ -179,6 +355,8 @@ public class OsvDataSource(
 
         return result;
     }
+
+    private readonly record struct EcosystemResult(int Processed, int Skipped, DateTimeOffset MaxSeen);
 }
 
 public sealed class GcsListing

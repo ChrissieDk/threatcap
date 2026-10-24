@@ -75,8 +75,18 @@ public enum VulnerabilityEventType
     AdvisoryUpdated = 4,
 }
 
+public enum ProductType
+{
+    Library = 0,
+    App = 1,
+    Os = 2,
+    Service = 3,
+    Other = 4,
+}
+
 public enum IngestionSource
 {
     Osv = 0,
     CisaKev = 1,
+    Epss = 2,
 }

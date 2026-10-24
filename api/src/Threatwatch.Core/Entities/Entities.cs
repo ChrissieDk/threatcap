@@ -17,6 +17,12 @@ public class Vulnerability
     public DateTimeOffset ModifiedAt { get; set; }
     public bool IsKnownExploited { get; set; }
     public bool IsWithdrawn { get; set; }
+    public string? PrimaryVendor { get; set; }
+    public string? PrimaryProduct { get; set; }
+    public ProductType? ProductType { get; set; }
+    public double? EpssScore { get; set; }
+    public double? EpssPercentile { get; set; }
+    public double? PriorityScore { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 

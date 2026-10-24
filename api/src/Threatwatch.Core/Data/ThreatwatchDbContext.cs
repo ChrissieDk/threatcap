@@ -69,6 +69,7 @@ public class ThreatwatchDbContext(DbContextOptions<ThreatwatchDbContext> options
             b.HasIndex(x => x.Severity);
             b.HasIndex(x => x.IsKnownExploited);
             b.Property(x => x.Severity).HasConversion<string>();
+            b.Property(x => x.ProductType).HasConversion<string>();
         });
 
         modelBuilder.Entity<VulnerabilityAlias>(b =>

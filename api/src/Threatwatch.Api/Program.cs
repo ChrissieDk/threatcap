@@ -153,6 +153,10 @@ builder.Services.AddSecurityDataSource<OsvDataSource>(
     new Uri("https://storage.googleapis.com/"),
     attemptTimeout: TimeSpan.FromMinutes(2));
 builder.Services.Configure<OsvOptions>(builder.Configuration.GetSection("Osv"));
+builder.Services.AddSecurityDataSource<EpssDataSource>(
+    new Uri("https://epss.empiricalsecurity.com/"),
+    attemptTimeout: TimeSpan.FromMinutes(2));
+builder.Services.Configure<EpssOptions>(builder.Configuration.GetSection("Epss"));
 builder.Services.AddSingleton<IngestionRunner>();
 builder.Services.AddHostedService<IngestionWorker>();
 builder.Services.AddHostedService<OsvBackfillService>();

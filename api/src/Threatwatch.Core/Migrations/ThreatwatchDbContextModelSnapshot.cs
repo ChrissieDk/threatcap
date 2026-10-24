@@ -479,6 +479,12 @@ namespace Threatwatch.Core.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
+                    b.Property<double?>("EpssPercentile")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("EpssScore")
+                        .HasColumnType("double precision");
+
                     b.Property<bool>("IsKnownExploited")
                         .HasColumnType("boolean");
 
@@ -487,6 +493,18 @@ namespace Threatwatch.Core.Migrations
 
                     b.Property<DateTimeOffset>("ModifiedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PrimaryProduct")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PrimaryVendor")
+                        .HasColumnType("text");
+
+                    b.Property<double?>("PriorityScore")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("ProductType")
+                        .HasColumnType("text");
 
                     b.Property<DateTimeOffset>("PublishedAt")
                         .HasColumnType("timestamp with time zone");

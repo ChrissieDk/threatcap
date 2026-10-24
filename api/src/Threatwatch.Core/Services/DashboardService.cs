@@ -20,6 +20,20 @@ public record DashboardSummaryDto(
     int FollowedTopicsWithActivity,
     IReadOnlyList<LastSyncDto> LastSyncs);
 
+public record ActNowItemDto(
+    Guid Id,
+    string CanonicalId,
+    string Title,
+    Severity Severity,
+    double? PriorityScore,
+    string? PrimaryVendor,
+    string? PrimaryProduct,
+    ProductType? ProductType,
+    double? EpssScore,
+    double? EpssPercentile,
+    bool IsKnownExploited,
+    DateTimeOffset PublishedAt);
+
 public class DashboardService(ThreatwatchDbContext db, FollowService follows)
 {
     public async Task<DashboardSummaryDto> GetSummaryAsync(int days, Guid userId, bool following, CancellationToken ct)
@@ -65,6 +79,40 @@ public class DashboardService(ThreatwatchDbContext db, FollowService follows)
             followList.Count,
             followList.Count(item => item.RecentActivityCount > 0),
             lastSyncs);
+    }
+
+    public async Task<IReadOnlyList<ActNowItemDto>> GetActNowAsync(
+        int top, int days, Guid userId, CancellationToken ct)
+    {
+        var cutoff = DateTimeOffset.UtcNow.AddDays(-days);
+        var techs = await follows.ListFollowedTechnologiesAsync(userId, ct);
+        if (techs.Count == 0)
+        {
+            return [];
+        }
+
+        return await db.Vulnerabilities
+            .WhereMatchesAny(techs)
+            .Where(v => v.PriorityScore != null
+                && (v.PublishedAt >= cutoff
+                    || v.Events.Any(e =>
+                        e.EventType == VulnerabilityEventType.KnownExploitedAdded && e.EventAt >= cutoff)))
+            .OrderByDescending(v => v.PriorityScore)
+            .Take(top)
+            .Select(v => new ActNowItemDto(
+                v.Id,
+                v.CanonicalId,
+                v.Title,
+                v.Severity,
+                v.PriorityScore,
+                v.PrimaryVendor,
+                v.PrimaryProduct,
+                v.ProductType,
+                v.EpssScore,
+                v.EpssPercentile,
+                v.IsKnownExploited,
+                v.PublishedAt))
+            .ToListAsync(ct);
     }
 
     public async Task<IReadOnlyList<DailyPointDto>> GetDailyAsync(
