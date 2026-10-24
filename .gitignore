@@ -1,0 +1,21 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+
+# Node / Next.js
+node_modules/
+.next/
+
+# Environment files
+.env
+.env.*
+appsettings.*.local.json
+api/src/Threatwatch.Api/data-protection-keys/
+
+# OS
+.DS_Store
+
+# Keep project docs tracked
+!web/AGENTS.md

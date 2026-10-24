@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: threatwatch-postgres
+    environment:
+      POSTGRES_DB: threatwatch
+      POSTGRES_USER: threatwatch
+      POSTGRES_PASSWORD: threatwatch
+    ports:
+      - "5432:5432"
+    volumes:
+      - threatwatch-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U threatwatch -d threatwatch"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  threatwatch-data:
