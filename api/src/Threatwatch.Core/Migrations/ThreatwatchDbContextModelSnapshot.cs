@@ -377,6 +377,9 @@ namespace Threatwatch.Core.Migrations
                     b.Property<string>("ExternalId")
                         .HasColumnType("text");
 
+                    b.Property<DateTimeOffset?>("LastNotificationsReadAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("boolean");
 
