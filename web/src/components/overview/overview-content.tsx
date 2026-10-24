@@ -117,7 +117,14 @@ export async function OverviewContent({ scope }: { scope?: string }) {
             {scoped ? "New in your stack" : "New in the last"} {DAYS} days by severity
             {totalInWindow > PAGE_SIZE ? " (top 100 shown)" : ""}.
           </p>
-          {severityCounts.size === 0 ? (
+          {vulns === null ? (
+            <div className="mt-4">
+              <EmptyState
+                title="Severity data unavailable"
+                description="The vulnerability request failed. The count above reflects an error, not an empty result — try refreshing."
+              />
+            </div>
+          ) : severityCounts.size === 0 ? (
             <div className="mt-4">
               <EmptyState
                 title={scoped ? "No matching advisories" : "No vulnerabilities ingested yet"}
@@ -158,7 +165,14 @@ export async function OverviewContent({ scope }: { scope?: string }) {
             Affected package ecosystems in the last {DAYS} days
             {scoped ? " for technologies you follow" : ""}.
           </p>
-          {topEcosystems.length === 0 ? (
+          {vulns === null ? (
+            <div className="mt-4">
+              <EmptyState
+                title="Ecosystem data unavailable"
+                description="The vulnerability request failed. This reflects an error, not an empty result — try refreshing."
+              />
+            </div>
+          ) : topEcosystems.length === 0 ? (
             <div className="mt-4">
               <EmptyState
                 title={scoped ? "No matching ecosystems" : "No ecosystems tracked yet"}
@@ -203,7 +217,14 @@ export async function OverviewContent({ scope }: { scope?: string }) {
             ? "Highest-severity matching advisories in your stack."
             : "Most recently published vulnerabilities."}
         </p>
-        {(vulns?.items.length ?? 0) === 0 ? (
+        {vulns === null ? (
+          <div className="mt-4">
+            <EmptyState
+              title="Activity feed unavailable"
+              description="The vulnerability request failed. This reflects an error, not an empty result — try refreshing."
+            />
+          </div>
+        ) : vulns.items.length === 0 ? (
           <div className="mt-4">
             <EmptyState
               title={scoped ? "No matching advisories" : "No vulnerabilities ingested yet"}
