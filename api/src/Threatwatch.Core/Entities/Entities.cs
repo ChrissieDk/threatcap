@@ -116,6 +116,13 @@ public class SecurityIncident
     public DateTimeOffset? ResolvedAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
+
+    public SourceType SourceType { get; set; } = SourceType.StatusPage;
+    public required string ExternalId { get; set; }
+    public string? Url { get; set; }
+    public required string VendorSlug { get; set; }
+    public required string VendorName { get; set; }
+    public Ecosystem? Ecosystem { get; set; }
 }
 
 public class VulnerabilityEvent

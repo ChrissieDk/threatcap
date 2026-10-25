@@ -12,6 +12,8 @@ import type { IngestionSyncStatus } from "@/lib/api/types"
 const SOURCE_LABELS: Record<string, string> = {
   osv: "OSV",
   "cisa-kev": "CISA KEV",
+  epss: "EPSS",
+  statuspage: "status pages",
 }
 
 export function LastSyncControl({

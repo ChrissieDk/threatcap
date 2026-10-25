@@ -19,6 +19,7 @@ const METRICS: Array<{ value: DailyMetric; label: string }> = [
   { value: "disclosures", label: "Disclosures" },
   { value: "updates", label: "Updates" },
   { value: "kev", label: "KEV additions" },
+  { value: "incidents", label: "Incidents" },
 ]
 
 const METRIC_NOUNNS: Record<DailyMetric, string> = {

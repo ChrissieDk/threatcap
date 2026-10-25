@@ -3,7 +3,7 @@ import { Flame } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { SeverityBadge } from "@/components/severity-badge"
 import { ProductBadge } from "@/components/product-badge"
-import { formatRelativeTime } from "@/lib/formatters"
+import { RelativeTime } from "@/components/relative-time"
 import type { ActNowItem } from "@/lib/api/types"
 
 function exploitationChance(item: ActNowItem): string | null {
@@ -44,30 +44,38 @@ export function ActNowCard({ item }: { item: ActNowItem }) {
           </Badge>
         )}
       </div>
-      <div className="text-muted-foreground flex items-center justify-between gap-2 text-[11px] tabular-nums">
-        <span className="min-w-0 truncate">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-muted-foreground min-w-0 truncate text-[11px] tabular-nums">
           {item.priorityScore !== null && (
             <>Priority {item.priorityScore.toFixed(1)}</>
           )}
           {item.priorityScore !== null && exploitationChance(item) && " · "}
           {exploitationChance(item)}
         </span>
-        <time dateTime={item.publishedAt} className="shrink-0">
-          {formatRelativeTime(item.publishedAt)}
-        </time>
+        <RelativeTime iso={item.publishedAt} />
       </div>
     </li>
   )
 }
 
-export function ActNowStack({ items }: { items: ActNowItem[] }) {
+export function ActNowStack({
+  items,
+  showHeader = true,
+}: {
+  items: ActNowItem[]
+  showHeader?: boolean
+}) {
   return (
     <section aria-label="Act now">
-      <h2 className="text-sm font-medium">Act now</h2>
-      <p className="text-muted-foreground mt-0.5 text-xs">
-        Highest-priority vulnerabilities affecting technologies you follow.
-      </p>
-      <ul className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {showHeader && (
+        <>
+          <h2 className="text-sm font-medium">Act now</h2>
+          <p className="text-muted-foreground mt-0.5 text-xs">
+            Highest-priority vulnerabilities affecting technologies you follow.
+          </p>
+        </>
+      )}
+      <ul className={showHeader ? "mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" : "grid gap-3 sm:grid-cols-2 xl:grid-cols-3"}>
         {items.map((item) => (
           <ActNowCard key={item.id} item={item} />
         ))}

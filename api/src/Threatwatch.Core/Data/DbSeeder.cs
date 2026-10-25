@@ -36,6 +36,9 @@ public static class DbSeeder
 
         ("Docker", "docker", TechnologyType.Infrastructure, null, []),
         ("PostgreSQL", "postgresql", TechnologyType.Infrastructure, null, ["postgres", "pgsql"]),
+        ("GitHub", "github", TechnologyType.Infrastructure, null, ["gh", "github.com"]),
+        ("GitHub Actions", "github-actions", TechnologyType.Ecosystem, Ecosystem.GithubActions, ["gha", "actions"]),
+        ("Cloudflare", "cloudflare", TechnologyType.Infrastructure, null, ["cf"]),
     ];
 
     public static async Task SeedAsync(ThreatwatchDbContext db, CancellationToken ct = default)

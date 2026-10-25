@@ -16,7 +16,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatRelativeTime, formatUtcDate } from "@/lib/formatters"
+import { formatUtcDate } from "@/lib/formatters"
+import { RelativeTime } from "@/components/relative-time"
 
 const EVENT_LABELS: Record<VulnerabilityDetail["events"][number]["eventType"], string> = {
   Published: "Published",
@@ -130,11 +131,9 @@ export default async function VulnerabilityDetailPage({
         ].map(([label, value]) => (
           <div key={label} className="bg-surface px-3 py-2.5">
             <dt className="text-muted-foreground text-[11px] uppercase">{label}</dt>
-            <dd className="mt-0.5 text-xs tabular-nums">
-              {formatUtcDate(value)}
-              <span className="text-muted-foreground ml-1.5">
-                ({formatRelativeTime(value)})
-              </span>
+            <dd className="mt-1 flex flex-wrap items-center gap-1.5 text-xs tabular-nums">
+              <span>{formatUtcDate(value)}</span>
+              <RelativeTime iso={value} />
             </dd>
           </div>
         ))}
@@ -272,12 +271,7 @@ export default async function VulnerabilityDetailPage({
                   aria-hidden
                 />
                 {r.publishedAt && (
-                  <time
-                    dateTime={r.publishedAt}
-                    className="text-muted-foreground ml-auto shrink-0 text-[11px]"
-                  >
-                    {formatRelativeTime(r.publishedAt)}
-                  </time>
+                  <RelativeTime iso={r.publishedAt} className="ml-auto" />
                 )}
               </li>
             ))}
@@ -298,9 +292,11 @@ export default async function VulnerabilityDetailPage({
                   aria-hidden
                 />
                 <p className="text-[13px] font-medium">{EVENT_LABELS[e.eventType]}</p>
-                <p className="text-muted-foreground text-xs tabular-nums">
-                  <time dateTime={e.eventAt}>{formatUtcDate(e.eventAt)}</time>
-                  <span className="ml-1.5">({formatRelativeTime(e.eventAt)})</span>
+                <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs tabular-nums">
+                  <time dateTime={e.eventAt} className="text-muted-foreground">
+                    {formatUtcDate(e.eventAt)}
+                  </time>
+                  <RelativeTime iso={e.eventAt} />
                 </p>
                 {e.details && (
                   <p className="text-muted-foreground mt-1 text-xs">{e.details}</p>

@@ -133,8 +133,16 @@ public class ThreatwatchDbContext(DbContextOptions<ThreatwatchDbContext> options
         modelBuilder.Entity<SecurityIncident>(b =>
         {
             b.HasIndex(x => x.StartedAt);
+            b.HasIndex(x => x.Status);
+            b.HasIndex(x => x.VendorSlug);
+            b.HasIndex(x => new { x.SourceType, x.ExternalId }).IsUnique();
             b.Property(x => x.Type).HasConversion<string>();
             b.Property(x => x.Status).HasConversion<string>();
+            b.Property(x => x.SourceType).HasConversion<string>();
+            b.Property(x => x.Ecosystem).HasConversion<string>();
+            b.Property(x => x.ExternalId).HasMaxLength(200);
+            b.Property(x => x.VendorSlug).HasMaxLength(80);
+            b.Property(x => x.VendorName).HasMaxLength(120);
         });
 
         modelBuilder.Entity<VulnerabilityEvent>(b =>

@@ -9,6 +9,7 @@ import {
   Rss,
   Settings,
   ShieldAlert,
+  Zap,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -23,6 +24,7 @@ export const NAV_SECTIONS: Array<{ label: string; items: NavItem[] }> = [
     label: "Intelligence",
     items: [
       { href: "/", label: "Overview", icon: LayoutDashboard },
+      { href: "/act-now", label: "Act now", icon: Zap },
       { href: "/vulnerabilities", label: "Vulnerabilities", icon: ShieldAlert },
       { href: "/incidents", label: "Incidents", icon: Activity },
       { href: "/discussions", label: "Discussions", icon: MessagesSquare },

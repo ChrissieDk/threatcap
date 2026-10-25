@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { SeverityBadge } from "@/components/severity-badge"
-import { formatRelativeTime } from "@/lib/formatters"
+import { RelativeTime } from "@/components/relative-time"
 import { REQUEST_HEADER } from "@/lib/auth"
 import type { Severity } from "@/lib/api/types"
 
@@ -136,9 +136,7 @@ export function NotificationBell() {
                         KEV
                       </span>
                     )}
-                    <span className="text-muted-foreground ml-auto text-[11px]">
-                      {formatRelativeTime(item.activityAt)}
-                    </span>
+                    <RelativeTime iso={item.activityAt} className="ml-auto" />
                   </div>
                   <div className="mt-1 truncate text-sm">{item.title}</div>
                   <div className="text-muted-foreground mt-0.5 flex items-center gap-2 text-[11px]">

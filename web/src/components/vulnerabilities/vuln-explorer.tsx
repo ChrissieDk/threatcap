@@ -31,7 +31,8 @@ import {
 import { SeverityBadge } from "@/components/severity-badge"
 import { ProductBadge } from "@/components/product-badge"
 import { EmptyState } from "@/components/empty-state"
-import { formatCvss, formatRelativeTime } from "@/lib/formatters"
+import { formatCvss } from "@/lib/formatters"
+import { RelativeTime } from "@/components/relative-time"
 import type { VulnerabilityListItem, VulnerabilityListResponse } from "@/lib/api/types"
 import { endSession } from "@/lib/auth"
 
@@ -147,7 +148,7 @@ export function VulnExplorer() {
           cell: (c) => (
             <Link
               href={`/vulnerabilities/${c.row.original.id}`}
-              className="font-mono text-[11px] hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-sm"
+              className="hover:text-primary focus-visible:ring-primary/50 rounded-sm font-mono text-[11px] whitespace-nowrap focus-visible:ring-2 focus-visible:outline-none"
             >
               {c.getValue()}
             </Link>
@@ -178,19 +179,11 @@ export function VulnExplorer() {
         }),
         col.accessor("publishedAt", {
           header: "Published",
-          cell: (c) => (
-            <span className="text-muted-foreground text-xs tabular-nums">
-              {formatRelativeTime(c.getValue())}
-            </span>
-          ),
+          cell: (c) => <RelativeTime iso={c.getValue()} />,
         }),
         col.accessor("modifiedAt", {
           header: "Modified",
-          cell: (c) => (
-            <span className="text-muted-foreground text-xs tabular-nums">
-              {formatRelativeTime(c.getValue())}
-            </span>
-          ),
+          cell: (c) => <RelativeTime iso={c.getValue()} />,
         }),
         col.accessor("ecosystems", {
           header: "Ecosystems",
@@ -389,7 +382,7 @@ export function VulnExplorer() {
         />
       ) : (
         <div className="border-line rounded-md border">
-          <Table>
+          <Table className="min-w-[1080px]">
             <TableHeader>
               {table.getHeaderGroups().map((hg) => (
                 <TableRow key={hg.id}>
@@ -421,7 +414,18 @@ export function VulnExplorer() {
               {table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id}>
                   {row.getAllCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell
+                      key={cell.id}
+                      className={
+                        cell.column.id === "canonicalId" ||
+                        cell.column.id === "publishedAt" ||
+                        cell.column.id === "modifiedAt" ||
+                        cell.column.id === "cvssScore" ||
+                        cell.column.id === "severity"
+                          ? "whitespace-nowrap"
+                          : undefined
+                      }
+                    >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}

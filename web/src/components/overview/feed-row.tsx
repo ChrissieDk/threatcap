@@ -2,7 +2,7 @@ import Link from "next/link"
 import { Flame, Wrench } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { SeverityDot } from "@/components/severity-badge"
-import { formatRelativeTime } from "@/lib/formatters"
+import { RelativeTime } from "@/components/relative-time"
 import type { VulnerabilityListItem } from "@/lib/api/types"
 
 export function FeedRow({ item }: { item: VulnerabilityListItem }) {
@@ -36,12 +36,7 @@ export function FeedRow({ item }: { item: VulnerabilityListItem }) {
             Fix
           </Badge>
         )}
-        <time
-          dateTime={item.publishedAt}
-          className="text-muted-foreground w-20 text-right text-[11px] tabular-nums"
-        >
-          {formatRelativeTime(item.publishedAt)}
-        </time>
+        <RelativeTime iso={item.publishedAt} />
       </div>
     </li>
   )

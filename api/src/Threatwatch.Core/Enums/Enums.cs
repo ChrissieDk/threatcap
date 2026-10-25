@@ -89,4 +89,5 @@ public enum IngestionSource
     Osv = 0,
     CisaKev = 1,
     Epss = 2,
+    StatusPage = 3,
 }

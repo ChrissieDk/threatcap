@@ -58,7 +58,18 @@ export function MetricStrip({
           </Link>
         }
       />
-      <Metric label="Active incidents" value={String(summary.activeIncidents)} />
+      <Metric
+        label="Active incidents"
+        value={String(summary.activeIncidents)}
+        hint={
+          <Link
+            href="/incidents"
+            className="text-primary text-[11px] font-normal hover:underline focus-visible:ring-primary/50 rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+          >
+            View
+          </Link>
+        }
+      />
       <LastSyncControl lastSyncAt={lastSync ?? null} hasError={hasError} />
     </section>
   )

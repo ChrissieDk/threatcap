@@ -1,4 +1,4 @@
-export type SyncSource = "Osv" | "CisaKev" | "Nvd" | "GitHubAdvisory";
+export type SyncSource = "Osv" | "CisaKev" | "Epss" | "StatusPage" | "Nvd" | "GitHubAdvisory";
 
 export type IngestionSyncStatus = {
   running: boolean;
@@ -146,6 +146,34 @@ export type ActNowItem = {
   isKnownExploited: boolean;
   publishedAt: string;
 };
+
+export type IncidentStatus =
+  | "Investigating"
+  | "Identified"
+  | "Monitoring"
+  | "Resolved"
+
+export type IncidentType =
+  | "Outage"
+  | "ServiceDegradation"
+  | "ExploitationReported"
+  | "SecurityIncident"
+  | "SuspectedSecurityIncident"
+
+export type SecurityIncidentItem = {
+  id: string
+  title: string
+  description: string | null
+  type: IncidentType
+  status: IncidentStatus
+  vendorSlug: string
+  vendorName: string
+  ecosystem: string | null
+  url: string | null
+  startedAt: string
+  resolvedAt: string | null
+  updatedAt: string
+}
 
 export type ProviderHealth = {
   source: string;

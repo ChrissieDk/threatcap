@@ -136,6 +136,7 @@ builder.Services.AddScoped<VulnerabilityQueryService>();
 builder.Services.AddScoped<TechnologyQueryService>();
 builder.Services.AddScoped<FollowService>();
 builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<IncidentQueryService>();
 
 // Ingestion
 builder.Services.AddScoped<VulnerabilityUpserter>();
@@ -149,14 +150,15 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddSecurityDataSource<CisaKevDataSource>(new Uri("https://www.cisa.gov/"));
-builder.Services.AddSecurityDataSource<OsvDataSource>(
-    new Uri("https://storage.googleapis.com/"),
-    attemptTimeout: TimeSpan.FromMinutes(2));
-builder.Services.Configure<OsvOptions>(builder.Configuration.GetSection("Osv"));
+builder.Services.AddSecurityDataSource<StatusPageDataSource>(new Uri("https://www.githubstatus.com/"));
 builder.Services.AddSecurityDataSource<EpssDataSource>(
     new Uri("https://epss.empiricalsecurity.com/"),
     attemptTimeout: TimeSpan.FromMinutes(2));
 builder.Services.Configure<EpssOptions>(builder.Configuration.GetSection("Epss"));
+builder.Services.AddSecurityDataSource<OsvDataSource>(
+    new Uri("https://storage.googleapis.com/"),
+    attemptTimeout: TimeSpan.FromMinutes(2));
+builder.Services.Configure<OsvOptions>(builder.Configuration.GetSection("Osv"));
 builder.Services.AddSingleton<IngestionRunner>();
 builder.Services.AddHostedService<IngestionWorker>();
 builder.Services.AddHostedService<OsvBackfillService>();

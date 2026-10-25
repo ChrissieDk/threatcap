@@ -83,6 +83,7 @@ In the Development environment the OpenAPI document is available at http://local
 
 - [OSV.dev](https://osv.dev/) — open vulnerability database. Only advisories modified in the last 90 days are stored.
 - [CISA Known Exploited Vulnerabilities (KEV) Catalog](https://www.cisa.gov/known-exploited-vulnerabilities-catalog) — vulnerabilities known to be actively exploited in the wild
+- Public [Atlassian Statuspage](https://www.atlassian.com/software/statuspage) JSON (`/api/v2/incidents.json`) for GitHub, npm, PyPI, Cloudflare, and Docker. No API key. AWS Health and NuGet are omitted because they have no equivalent free public feed.
 
 ## Current status / roadmap
 
@@ -93,5 +94,4 @@ Accounts are stored in the `Users` table (`Id`, `Email`, `DisplayName`, `Created
 Planned for future phases (not implemented yet):
 
 - NVD and GitHub Advisory enrichment
-- Security incident tracking
 - Discussions/comments on advisories

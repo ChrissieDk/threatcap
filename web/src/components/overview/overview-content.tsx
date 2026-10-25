@@ -46,7 +46,7 @@ export async function OverviewContent({ scope }: { scope?: string }) {
       : Promise.resolve(baseline),
     tryGet<DailyPoint[]>(`/api/v1/dashboard/daily?days=${DAYS}&metric=disclosures${followQs}`),
     tryGet<VulnerabilityListResponse>(
-      `/api/v1/vulnerabilities?from=${sevenDaysAgo()}&page=1&pageSize=${PAGE_SIZE}&sort=-severity${followQs}`
+      `/api/v1/vulnerabilities?from=${sevenDaysAgo()}&page=1&pageSize=${PAGE_SIZE}&sort=-publishedAt${followQs}`
     ),
   ])
 
@@ -214,7 +214,7 @@ export async function OverviewContent({ scope }: { scope?: string }) {
         <h2 className="text-sm font-medium">Latest activity</h2>
         <p className="text-muted-foreground mt-0.5 text-xs">
           {scoped
-            ? "Highest-severity matching advisories in your stack."
+            ? "Newest matching advisories in your stack."
             : "Most recently published vulnerabilities."}
         </p>
         {vulns === null ? (
@@ -229,9 +229,9 @@ export async function OverviewContent({ scope }: { scope?: string }) {
             <EmptyState
               title={scoped ? "No matching advisories" : "No vulnerabilities ingested yet"}
               description={
-                scoped
-                  ? "Highest-severity matching advisories will show here when your stack has new disclosures."
-                  : "The ingestion worker may still be running. Data will appear here after the first sync."
+                  scoped
+                    ? "New matching advisories will show here when your stack has disclosures."
+                    : "The ingestion worker may still be running. Data will appear here after the first sync."
               }
             />
           </div>

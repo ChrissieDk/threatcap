@@ -4,6 +4,7 @@ import {
   formatCvss,
   formatRelativeTime,
   formatUtcDate,
+  relativeAge,
 } from "@/lib/formatters"
 import type { Severity } from "@/lib/api/types"
 
@@ -16,14 +17,25 @@ describe("formatRelativeTime", () => {
 
   it("formats minutes, hours, and days ago", () => {
     const now = Date.now()
-    expect(formatRelativeTime(new Date(now - 5 * 60_000).toISOString())).toBe("5m ago")
-    expect(formatRelativeTime(new Date(now - 3 * 3_600_000).toISOString())).toBe("3h ago")
-    expect(formatRelativeTime(new Date(now - 2 * 86_400_000).toISOString())).toBe("2d ago")
+    expect(formatRelativeTime(new Date(now - 5 * 60_000).toISOString())).toBe("5 minutes ago")
+    expect(formatRelativeTime(new Date(now - 3 * 3_600_000).toISOString())).toBe("3 hours ago")
+    expect(formatRelativeTime(new Date(now - 1 * 86_400_000).toISOString())).toBe("1 day ago")
+    expect(formatRelativeTime(new Date(now - 2 * 86_400_000).toISOString())).toBe("2 days ago")
   })
 
   it("formats future times", () => {
     const future = new Date(Date.now() + 2 * 60 * 60_000).toISOString()
-    expect(formatRelativeTime(future)).toBe("2h from now")
+    expect(formatRelativeTime(future)).toBe("in 2 hours")
+  })
+})
+
+describe("relativeAge", () => {
+  it("bands timestamps by freshness", () => {
+    const now = Date.now()
+    expect(relativeAge(null)).toBe("unknown")
+    expect(relativeAge(new Date(now - 2 * 3_600_000).toISOString())).toBe("fresh")
+    expect(relativeAge(new Date(now - 3 * 86_400_000).toISOString())).toBe("recent")
+    expect(relativeAge(new Date(now - 20 * 86_400_000).toISOString())).toBe("older")
   })
 })
 

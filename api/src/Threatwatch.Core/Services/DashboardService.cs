@@ -62,7 +62,13 @@ public class DashboardService(ThreatwatchDbContext db, FollowService follows)
         }
 
         var kevAdded = await kevEvents.CountAsync(ct);
-        var activeIncidents = await db.SecurityIncidents.CountAsync(
+        IQueryable<SecurityIncident> incidents = db.SecurityIncidents;
+        if (following)
+        {
+            incidents = incidents.WhereMatchesFollows(techs);
+        }
+
+        var activeIncidents = await incidents.CountAsync(
             i => i.Status != IncidentStatus.Resolved, ct);
         var lastSyncs = await db.IngestionStates
             .OrderBy(s => s.Source)
@@ -98,6 +104,7 @@ public class DashboardService(ThreatwatchDbContext db, FollowService follows)
                     || v.Events.Any(e =>
                         e.EventType == VulnerabilityEventType.KnownExploitedAdded && e.EventAt >= cutoff)))
             .OrderByDescending(v => v.PriorityScore)
+            .ThenByDescending(v => v.PublishedAt)
             .Take(top)
             .Select(v => new ActNowItemDto(
                 v.Id,
@@ -144,10 +151,7 @@ public class DashboardService(ThreatwatchDbContext db, FollowService follows)
                 following,
                 e => e.EventType == VulnerabilityEventType.KnownExploitedAdded,
                 ct),
-            "incidents" => await db.SecurityIncidents
-                .Where(i => i.StartedAt >= start)
-                .Select(i => i.StartedAt)
-                .ToListAsync(ct),
+            "incidents" => await IncidentTimesAsync(start, techs, following, ct),
             _ => throw new ArgumentException($"Unknown metric '{metric}'.", nameof(metric)),
         };
 
@@ -197,5 +201,20 @@ public class DashboardService(ThreatwatchDbContext db, FollowService follows)
         }
 
         return await query.Select(e => e.EventAt).ToListAsync(ct);
+    }
+
+    private async Task<List<DateTimeOffset>> IncidentTimesAsync(
+        DateTimeOffset start,
+        IReadOnlyList<Technology> techs,
+        bool following,
+        CancellationToken ct)
+    {
+        IQueryable<SecurityIncident> query = db.SecurityIncidents.Where(i => i.StartedAt >= start);
+        if (following)
+        {
+            query = query.WhereMatchesFollows(techs);
+        }
+
+        return await query.Select(i => i.StartedAt).ToListAsync(ct);
     }
 }

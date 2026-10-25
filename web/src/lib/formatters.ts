@@ -5,18 +5,36 @@ export function formatRelativeTime(iso: string | null | undefined): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "Never";
   const diffMs = Date.now() - date.getTime();
+  const past = diffMs >= 0;
   const abs = Math.abs(diffMs);
-  const suffix = diffMs >= 0 ? "ago" : "from now";
   const minutes = Math.floor(abs / 60_000);
-  if (minutes < 1) return diffMs >= 0 ? "just now" : "in <1m";
-  if (minutes < 60) return `${minutes}m ${suffix}`;
+  if (minutes < 1) return past ? "just now" : "in <1 minute";
+  if (minutes < 60) return relativePhrase(minutes, "minute", past);
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ${suffix}`;
+  if (hours < 24) return relativePhrase(hours, "hour", past);
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ${suffix}`;
+  if (days < 30) return relativePhrase(days, "day", past);
   const months = Math.floor(days / 30);
-  if (months < 12) return `${months}mo ${suffix}`;
-  return `${Math.floor(months / 12)}y ${suffix}`;
+  if (months < 12) return relativePhrase(months, "month", past);
+  return relativePhrase(Math.floor(months / 12), "year", past);
+}
+
+export type RelativeAge = "fresh" | "recent" | "older" | "unknown";
+
+/** Visual age for list timestamps: under a day, under a week, or older. */
+export function relativeAge(iso: string | null | undefined): RelativeAge {
+  if (!iso) return "unknown";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "unknown";
+  const hours = Math.abs(Date.now() - date.getTime()) / 3_600_000;
+  if (hours < 24) return "fresh";
+  if (hours < 24 * 7) return "recent";
+  return "older";
+}
+
+function relativePhrase(count: number, unit: string, past: boolean): string {
+  const amount = `${count} ${count === 1 ? unit : `${unit}s`}`;
+  return past ? `${amount} ago` : `in ${amount}`;
 }
 
 export function formatUtcDate(iso: string | null | undefined): string {

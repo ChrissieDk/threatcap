@@ -7,7 +7,7 @@ import type { FollowedTechnology } from "@/lib/api/types"
 import { FollowButton } from "@/components/technologies/follow-button"
 import { EmptyState } from "@/components/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
-import { formatRelativeTime } from "@/lib/formatters"
+import { RelativeTime } from "@/components/relative-time"
 import { connection } from "next/server"
 
 export const metadata = { title: "Following" }
@@ -59,9 +59,9 @@ async function FollowingList() {
                 : `${item.recentActivityCount} new in ${DAYS}d`}
               {item.kevCount > 0 ? ` · ${item.kevCount} KEV` : ""}
               {item.criticalHighCount > 0 ? ` · ${item.criticalHighCount} critical/high` : ""}
-              {item.lastActivityAt ? ` · last ${formatRelativeTime(item.lastActivityAt)}` : ""}
             </p>
           </Link>
+          {item.lastActivityAt && <RelativeTime iso={item.lastActivityAt} />}
           {item.kevCount > 0 && (
             <Flame className="text-severity-high size-3.5 shrink-0" aria-label="Has KEV activity" />
           )}

@@ -44,7 +44,8 @@ public class FollowService(ThreatwatchDbContext db)
         var hits = await RecentPackageHitsAsync(activityDays, ct);
         return follows
             .Select(follow => ToDto(follow, hits))
-            .OrderByDescending(item => item.KevCount)
+            .OrderByDescending(item => item.LastActivityAt)
+            .ThenByDescending(item => item.KevCount)
             .ThenByDescending(item => item.CriticalHighCount)
             .ThenByDescending(item => item.RecentActivityCount)
             .ThenBy(item => item.Name, StringComparer.OrdinalIgnoreCase)
