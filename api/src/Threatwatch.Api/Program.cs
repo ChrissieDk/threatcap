@@ -137,6 +137,7 @@ builder.Services.AddScoped<TechnologyQueryService>();
 builder.Services.AddScoped<FollowService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<IncidentQueryService>();
+builder.Services.AddScoped<Threatwatch.Core.Projects.ProjectService>();
 
 // Ingestion
 builder.Services.AddScoped<VulnerabilityUpserter>();

@@ -147,3 +147,33 @@ public class IngestionState
     public string? LastError { get; set; }
     public long? LastDurationMs { get; set; }
 }
+
+/// <summary>A user's software project, described by uploaded dependency files (the files themselves are not kept).</summary>
+public class Project
+{
+    public Guid Id { get; set; }
+    public Guid UserId { get; set; }
+    public required string Name { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    public UserAccount User { get; set; } = null!;
+    public ICollection<ProjectDependency> Dependencies { get; set; } = new List<ProjectDependency>();
+}
+
+/// <summary>One dependency as read from one source file; merged across files when read.</summary>
+public class ProjectDependency
+{
+    public Guid Id { get; set; }
+    public Guid ProjectId { get; set; }
+    public required string SourceFile { get; set; }
+    public Ecosystem Ecosystem { get; set; }
+    public required string Name { get; set; }
+    public required string DisplayName { get; set; }
+    public string? Version { get; set; }
+    public Threatwatch.Core.Projects.VersionKind VersionKind { get; set; }
+    public bool IsDev { get; set; }
+    public bool IsDirect { get; set; }
+
+    public Project Project { get; set; } = null!;
+}

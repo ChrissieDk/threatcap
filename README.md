@@ -77,6 +77,16 @@ Threatwatch is a developer security intelligence dashboard: it ingests vulnerabi
 
 Accounts use ASP.NET Core Identity. Passwords are hashed with Identity's PBKDF2 hasher and are not stored. The browser keeps an HttpOnly `threatwatch.session` cookie (SameSite=Lax, 7-day sliding session). Five failed sign-ins lock the account for 15 minutes. Data-protection keys for the cookie are written to `api/src/Threatwatch.Api/data-protection-keys/` and are gitignored.
 
+## Projects
+
+Under **Projects**, drop in your dependency files and Threatwatch lists the known vulnerabilities that affect the **exact versions you use**, with the version to upgrade to. New advisories that hit a project also trigger your alerts (even for packages you do not follow), and an alert names the project, the package version and the fix.
+
+Supported files: `package.json`, `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock` (npm); `requirements.txt`, `poetry.lock`, `uv.lock`, `Pipfile.lock` (PyPI); `*.csproj`, `Directory.Packages.props`, `packages.config` (NuGet); `go.mod`; `Cargo.toml`, `Cargo.lock`; `pom.xml` (Maven); and CycloneDX or SPDX JSON SBOMs, which cover any of those ecosystems. You can also paste a file's contents instead of uploading it. A project can combine several files, for example a frontend `package.json` plus its lockfile and a backend `.csproj`. Adding a file with an existing name replaces it.
+
+- **Exact vs declared versions.** A lockfile (or a pinned version) gives an exact result. A manifest alone only gives a range such as `^4.17.0`; Threatwatch checks its lowest version and marks the result as approximate.
+- **How matching works.** Versions are compared with each ecosystem's ordering (semver, NuGet, simplified PEP 440, approximated Maven) against the OSV affected ranges stored for each advisory. Advisories whose ranges are only git commits, and dependencies without a version, cannot be checked and are counted as "version unknown".
+- **Privacy and safety.** Only the dependency names and versions are stored; the files themselves are discarded. Uploads are capped (10 files, 5 MB each, 20 projects per user), XML is parsed with DTDs disabled, and projects are only visible to their owner.
+
 ## API documentation
 
 In the Development environment the OpenAPI document is available at http://localhost:5080/openapi/v1.json, with a Swagger UI at http://localhost:5080/openapi.

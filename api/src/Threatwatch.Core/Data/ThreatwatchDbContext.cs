@@ -18,6 +18,8 @@ public class ThreatwatchDbContext(DbContextOptions<ThreatwatchDbContext> options
     public DbSet<SecurityIncident> SecurityIncidents => Set<SecurityIncident>();
     public DbSet<VulnerabilityEvent> VulnerabilityEvents => Set<VulnerabilityEvent>();
     public DbSet<IngestionState> IngestionStates => Set<IngestionState>();
+    public DbSet<Project> Projects => Set<Project>();
+    public DbSet<ProjectDependency> ProjectDependencies => Set<ProjectDependency>();
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -159,6 +161,26 @@ public class ThreatwatchDbContext(DbContextOptions<ThreatwatchDbContext> options
         {
             b.HasIndex(x => x.Source).IsUnique();
             b.Property(x => x.Source).HasConversion<string>();
+        });
+
+        modelBuilder.Entity<Project>(b =>
+        {
+            b.HasIndex(x => x.UserId);
+            b.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            b.Property(x => x.Name).HasMaxLength(80);
+        });
+
+        modelBuilder.Entity<ProjectDependency>(b =>
+        {
+            b.HasIndex(x => x.ProjectId);
+            b.HasIndex(x => new { x.Ecosystem, x.Name });
+            b.HasOne(x => x.Project).WithMany(p => p.Dependencies).HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            b.Property(x => x.Ecosystem).HasConversion<string>();
+            b.Property(x => x.VersionKind).HasConversion<string>();
+            b.Property(x => x.SourceFile).HasMaxLength(200);
+            b.Property(x => x.Name).HasMaxLength(300);
+            b.Property(x => x.DisplayName).HasMaxLength(300);
+            b.Property(x => x.Version).HasMaxLength(100);
         });
     }
 }
