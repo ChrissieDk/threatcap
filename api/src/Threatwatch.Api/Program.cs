@@ -11,6 +11,7 @@ using Threatwatch.Core.Entities;
 using Threatwatch.Core.Identity;
 using Threatwatch.Core.Services;
 using Threatwatch.Ingestion.Abstractions;
+using Threatwatch.Ingestion.Alerts;
 using Threatwatch.Ingestion.Providers;
 using Threatwatch.Ingestion.Workers;
 
@@ -79,6 +80,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 });
 
 builder.Services.AddAuthorization();
+builder.Services.AddMemoryCache();
 
 builder.Services.AddControllers(options =>
     {
@@ -163,6 +165,7 @@ builder.Services.Configure<OsvOptions>(builder.Configuration.GetSection("Osv"));
 builder.Services.Configure<IngestionOptions>(builder.Configuration.GetSection("Ingestion"));
 builder.Services.AddSingleton<IngestionRunner>();
 builder.Services.AddHostedService<IngestionWorker>();
+builder.Services.AddAlerts(builder.Configuration);
 builder.Services.AddHostedService<OsvBackfillService>();
 builder.Services.AddHostedService<DbSeederHostedService>();
 

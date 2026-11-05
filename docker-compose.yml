@@ -16,5 +16,14 @@ services:
       timeout: 3s
       retries: 10
 
+  # Local mail catcher for development: SMTP on 1025, inbox UI at http://localhost:8025.
+  # Nothing is delivered to the outside world.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: threatwatch-mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
 volumes:
   threatwatch-data:

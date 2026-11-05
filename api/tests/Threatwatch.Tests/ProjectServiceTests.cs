@@ -1,4 +1,7 @@
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Threatwatch.Core.Alerts;
 using Threatwatch.Core.Data;
 using Threatwatch.Core.Entities;
 using Threatwatch.Core.Enums;
@@ -135,5 +138,29 @@ public class ProjectServiceTests : IDisposable
         }
 
         Assert.Contains("at most", (await _projects.CreateAsync(_userId, "one-too-many", [File("package.json", """{"dependencies":{"a":"1.0.0"}}""")], default)).Error);
+    }
+
+    [Fact]
+    public async Task Alerts_use_version_matching_for_project_dependencies()
+    {
+        _db.AlertPreferences.Add(new AlertPreference
+        {
+            Id = Guid.NewGuid(), UserId = _userId, MinSeverity = Severity.High,
+            CreatedAt = DateTimeOffset.UtcNow.AddDays(-1), UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        _db.AlertChannels.Add(new AlertChannel
+        {
+            Id = Guid.NewGuid(), UserId = _userId, Type = AlertChannelType.Webhook, Label = "hook", CreatedAt = DateTimeOffset.UtcNow,
+        });
+        await _db.SaveChangesAsync();
+        await _projects.CreateAsync(_userId, "api", [File("package-lock.json",
+            """{"packages":{"node_modules/lodash":{"version":"4.17.20"},"node_modules/express":{"version":"4.18.2"}}}""")], default);
+
+        var alerts = new AlertService(_db, new EphemeralDataProtectionProvider(), Options.Create(new AlertOptions()));
+        Assert.Equal(1, await alerts.EnqueueAsync(default));
+
+        var delivery = _db.AlertDeliveries.Single();
+        Assert.Contains("GHSA-lodash", delivery.Title);
+        Assert.Contains("api: lodash 4.17.20 (fixed in 4.17.21)", delivery.Summary);
     }
 }

@@ -148,6 +148,77 @@ public class IngestionState
     public long? LastDurationMs { get; set; }
 }
 
+/// <summary>Per-user alert rules. One row per user; absent means alerts are off.</summary>
+public class AlertPreference
+{
+    public Guid Id { get; set; }
+    public Guid UserId { get; set; }
+    public Severity MinSeverity { get; set; } = Severity.High;
+    public bool AlwaysAlertKnownExploited { get; set; } = true;
+    public double? MinEpss { get; set; }
+    public bool IncludeIncidents { get; set; }
+    public AlertDeliveryMode Mode { get; set; } = AlertDeliveryMode.Instant;
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    public UserAccount User { get; set; } = null!;
+}
+
+public class AlertChannel
+{
+    public Guid Id { get; set; }
+    public Guid UserId { get; set; }
+    public AlertChannelType Type { get; set; }
+    public required string Label { get; set; }
+
+    /// <summary>
+    /// Data-protection-encrypted destination (webhook URL or ntfy topic URL). Null for
+    /// email, which always goes to the account address. Never returned by the API.
+    /// </summary>
+    public string? ProtectedTarget { get; set; }
+
+    /// <summary>Non-secret display hint such as the target host.</summary>
+    public string? TargetHint { get; set; }
+    public bool IsEnabled { get; set; } = true;
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset? LastDeliveredAt { get; set; }
+    public DateTimeOffset? LastDigestAt { get; set; }
+    public string? LastError { get; set; }
+    public int ConsecutiveFailures { get; set; }
+
+    public UserAccount User { get; set; } = null!;
+}
+
+/// <summary>
+/// One row per (channel, item). The unique key makes enqueueing idempotent, so
+/// reprocessing source data can never alert twice for the same item.
+/// </summary>
+public class AlertDelivery
+{
+    public Guid Id { get; set; }
+    public Guid ChannelId { get; set; }
+    public AlertItemKind ItemKind { get; set; }
+    public Guid ItemId { get; set; }
+    public required string Title { get; set; }
+    public string? Summary { get; set; }
+    public string? Url { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset? SentAt { get; set; }
+    public DateTimeOffset? AbandonedAt { get; set; }
+    public int Attempts { get; set; }
+    public DateTimeOffset? NextAttemptAt { get; set; }
+
+    public AlertChannel Channel { get; set; } = null!;
+}
+
+/// <summary>Small encrypted key/value store for server-generated secrets (e.g. VAPID keys).</summary>
+public class AppSetting
+{
+    public required string Key { get; set; }
+    public required string ProtectedValue { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
 /// <summary>A user's software project, described by uploaded dependency files (the files themselves are not kept).</summary>
 public class Project
 {

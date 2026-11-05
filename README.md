@@ -61,7 +61,7 @@ Threatwatch is a developer security intelligence dashboard: it ingests vulnerabi
    cd web && pnpm dev
    ```
 
-   The frontend is served on http://localhost:3000. Open http://localhost:3000/register and create an account. Browser calls stay on that origin; the Next.js server attaches `API_KEY` and forwards the session cookie. Passwords must be 12–128 characters and include uppercase, lowercase, a number, and a symbol. Email addresses are checked for shape only — no verification message is sent.
+   The frontend is served on http://localhost:3000. Open http://localhost:3000/register and create an account. Browser calls stay on that origin; the Next.js server attaches `API_KEY` and forwards the session cookie. Passwords must be 12–128 characters and include uppercase, lowercase, a number, and a symbol. Email addresses are checked for shape at sign-up; verify yours from Preferences to enable email alerts (requires SMTP).
 
 ## Environment variables
 
@@ -86,6 +86,36 @@ Supported files: `package.json`, `package-lock.json`, `pnpm-lock.yaml`, `yarn.lo
 - **Exact vs declared versions.** A lockfile (or a pinned version) gives an exact result. A manifest alone only gives a range such as `^4.17.0`; Threatwatch checks its lowest version and marks the result as approximate.
 - **How matching works.** Versions are compared with each ecosystem's ordering (semver, NuGet, simplified PEP 440, approximated Maven) against the OSV affected ranges stored for each advisory. Advisories whose ranges are only git commits, and dependencies without a version, cannot be checked and are counted as "version unknown".
 - **Privacy and safety.** Only the dependency names and versions are stored; the files themselves are discarded. Uploads are capped (10 files, 5 MB each, 20 projects per user), XML is parsed with DTDs disabled, and projects are only visible to their owner.
+
+## Alerts
+
+New users land on **Preferences** after registering, where a three-step setup asks what they follow, how urgent alerts should be (*Only urgent*, *Balanced* or *Everything*, with a custom editor underneath), and where to receive them. A banner nudges anyone who has not connected a channel yet. Alerts only cover technologies the user follows, and a channel never receives items published before its rules were created.
+
+| Channel | Setup for the user | Needs from the operator |
+|---|---|---|
+| This browser (Web Push) | One click on **Enable**, then accept the browser prompt. Works on desktop and Android; on iOS the site must be added to the home screen first. | Nothing. VAPID keys are generated on first run and stored encrypted in the database. Browsers require https (localhost is fine). |
+| Phone (ntfy) | One click on **Set up**, then scan a QR code with the free ntfy app. The server generates a random secret topic. | Nothing (defaults to ntfy.sh). Set `Alerts__NtfyServerUrl` to use your own server. |
+| Email | **Verify email**, then **Email me**. | SMTP (`Smtp__*`). Hidden until configured. |
+| Webhook / custom ntfy URL | Under **Advanced**. Slack, Discord, Mattermost or any JSON endpoint. | Nothing. |
+
+**Email verification.** With SMTP configured, registration sends a confirmation link (valid 24 hours, built on ASP.NET Identity tokens). Sign-in is never blocked; verification only gates the email channel, so nobody can make the server mail an address they do not own. Users can request a new link from Preferences (limited to one per minute).
+
+**Security.** Destination URLs and push keys are encrypted at rest with ASP.NET Data Protection and never returned by the API (the ntfy topic is shown again only to its owner, for setup). Outbound calls require https, refuse private, loopback and link-local addresses (re-checked at connect time against DNS rebinding), do not follow redirects, and ignore system proxies. Push subscription endpoints get the same checks. A channel that fails eight times in a row, or whose browser subscription was revoked, is disabled. For a self-hosted ntfy on a trusted network, set `Alerts__AllowPrivateTargets=true`.
+
+| Variable | Description |
+|---|---|
+| `Alerts__WebBaseUrl` | Public URL of the web app, used for links in alerts and verification emails (default `http://localhost:3000`). |
+| `Alerts__NtfyServerUrl` | ntfy server for one-click phone alerts (default `https://ntfy.sh`). |
+| `Alerts__PushSubject` | Contact for push services, a `mailto:` or `https:` URL. Defaults to `Alerts__WebBaseUrl` when that is https. Set this in production. |
+| `Alerts__AllowPrivateTargets` | Allow http and private-network targets (default `false`). |
+| `Alerts__PollSeconds` | How often to look for new matches (default `60`). |
+| `Smtp__Host`, `Smtp__Port`, `Smtp__Security`, `Smtp__Username`, `Smtp__Password`, `Smtp__From`, `Smtp__FromName` | SMTP settings. `Smtp__Security` is `StartTls` (default), `Ssl` or `None` (e.g. Mailpit locally). |
+
+**Trying email locally.** `docker compose up -d` also starts Mailpit. Add `"Smtp": { "Host": "localhost", "Port": 1025, "Security": "None", "From": "alerts@threatwatch.local" }` to `appsettings.Development.local.json`, restart the API, and read every message at http://localhost:8025.
+
+**Real email.** Point `Smtp__*` at any SMTP server, for example Gmail (`smtp.gmail.com`, port 587, `StartTls`, your address and a Google app password) or a self-hosted server.
+
+Apply the new migrations (`AddAlerts`, `AddAppSettings`, `AddProjects`) with `dotnet ef database update` before starting the API.
 
 ## API documentation
 
