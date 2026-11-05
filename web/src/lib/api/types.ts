@@ -215,3 +215,72 @@ export type AlertState = {
 }
 
 export type NtfySetup = { topicUrl: string; server: string; topic: string }
+
+export type ProjectVersionKind = "Exact" | "Declared"
+
+export type ProjectSummary = {
+  id: string
+  name: string
+  dependencyCount: number
+  directCount: number
+  uncheckedCount: number
+  findingCount: number
+  criticalHighCount: number
+  knownExploitedCount: number
+  sourceFiles: string[]
+  updatedAt: string
+}
+
+export type ProjectFinding = {
+  vulnerabilityId: string
+  canonicalId: string
+  title: string
+  severity: Severity
+  cvssScore: number | null
+  epssScore: number | null
+  isKnownExploited: boolean
+  priorityScore: number | null
+  ecosystem: string
+  package: string
+  version: string
+  versionKind: ProjectVersionKind
+  isDirect: boolean
+  isDev: boolean
+  fixedIn: string | null
+}
+
+export type ProjectDependency = {
+  ecosystem: string
+  name: string
+  version: string | null
+  versionKind: ProjectVersionKind
+  isDirect: boolean
+  isDev: boolean
+}
+
+export type ProjectDetail = {
+  summary: ProjectSummary
+  findings: ProjectFinding[]
+  dependencies: ProjectDependency[]
+}
+
+export type ProjectUploadResult = {
+  id: string
+  dependencyCount: number
+  warnings: string[]
+}
+
+export type ProjectFindingWithProject = {
+  projectId: string
+  projectName: string
+  finding: ProjectFinding
+}
+
+export type ProjectOverview = {
+  projectCount: number
+  projectsAffected: number
+  findingCount: number
+  criticalHighCount: number
+  knownExploitedCount: number
+  top: ProjectFindingWithProject[]
+}

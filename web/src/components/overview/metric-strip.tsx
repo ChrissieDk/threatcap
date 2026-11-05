@@ -27,9 +27,11 @@ function Metric({
 export function MetricStrip({
   summary,
   scoped,
+  projectFindings,
 }: {
   summary: DashboardSummary
   scoped?: boolean
+  projectFindings?: number | null
 }) {
   const lastSync = summary.lastSyncs
     .map((s) => s.lastSuccessfulSyncAt)
@@ -46,6 +48,20 @@ export function MetricStrip({
       />
       <Metric label="Critical / High" value={String(summary.criticalHigh)} />
       <Metric label="KEV added" value={String(summary.kevAdded)} />
+      {projectFindings !== null && projectFindings !== undefined && (
+        <Metric
+          label="Affecting your projects"
+          value={String(projectFindings)}
+          hint={
+            <Link
+              href="/projects"
+              className="text-primary text-[11px] font-normal hover:underline focus-visible:ring-primary/50 rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+            >
+              View
+            </Link>
+          }
+        />
+      )}
       <Metric
         label="Followed with activity"
         value={String(summary.followedTopicsWithActivity)}
