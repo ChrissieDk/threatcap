@@ -144,7 +144,7 @@ public class ProductAndPriorityTests : IDisposable
     }
 
     [Fact]
-    public async Task PriorityScoreIsNullWithoutCvss()
+    public async Task ExploitedAdvisoryWithoutRatingStillGetsAPriority()
     {
         await _upserter.UpdateEpssAsync("CVE-2024-5000", 0.9, 0.99, CancellationToken.None);
         await _upserter.UpsertKnownExploitedAsync(
@@ -153,7 +153,8 @@ public class ProductAndPriorityTests : IDisposable
             "https://cisa.gov/kev", CancellationToken.None);
         await _upserter.UpdateEpssAsync("CVE-2024-5000", 0.9, 0.99, CancellationToken.None);
 
-        Assert.Null(await PriorityOf("CVE-2024-5000"));
+        // No CVSS or label, but actively exploited: ranked as 7.0 x (1 + EPSS) x 2 so it can reach Act now.
+        Assert.Equal(7.0 * 1.9 * 2, await PriorityOf("CVE-2024-5000"));
     }
 
     [Fact]

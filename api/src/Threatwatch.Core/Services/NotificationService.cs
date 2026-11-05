@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Threatwatch.Core.Data;
+using Threatwatch.Core.Alerts;
 using Threatwatch.Core.Entities;
 using Threatwatch.Core.Enums;
+using Threatwatch.Core.Projects;
 
 namespace Threatwatch.Core.Services;
 
@@ -14,25 +16,35 @@ public record NotificationItemDto(
     bool IsKnownExploited,
     DateTimeOffset ActivityAt,
     string MatchedTechnologyName,
-    string MatchedTechnologySlug);
+    string MatchedTechnologySlug,
+    bool IsNew = true,
+    string? Reason = null);
 
 public record NotificationSummaryDto(
     int UnreadCount,
     bool HasKevUnread,
     IReadOnlyList<NotificationItemDto> Items,
-    DateTimeOffset GeneratedAt);
+    DateTimeOffset GeneratedAt,
+    int TotalRelevant = 0);
 
 /// <summary>
-/// In-app notifications derived from the read cursor on UserAccount: unread activity is
-/// any vulnerability matching a followed technology whose publication (or KEV addition)
-/// happened after <see cref="UserAccount.LastNotificationsReadAt"/>. Derived at read time
-/// rather than materialized during ingestion, so reprocessing source data can never
-/// create duplicate notifications.
+/// In-app notifications, derived at read time so reprocessing source data can never create
+/// duplicates. An item is relevant when it matches the user's projects (version-checked) or a
+/// followed technology AND passes the user's alert rules (or the defaults: High and above, plus
+/// anything actively exploited). Following a whole ecosystem is a firehose, so those matches only
+/// count when the advisory is actively exploited or Critical. "New" means newer than the read cursor
+/// (<see cref="UserAccount.LastNotificationsReadAt"/>); the list is ranked by importance and capped.
 /// </summary>
 public class NotificationService(ThreatwatchDbContext db)
 {
     public const int DefaultLookbackDays = 14;
-    public const int MaxItems = 20;
+    public const int MaxItems = 10;
+
+    private static readonly AlertPreference DefaultRules = new()
+    {
+        MinSeverity = Severity.High,
+        AlwaysAlertKnownExploited = true,
+    };
 
     public async Task<NotificationSummaryDto> GetAsync(Guid userId, CancellationToken ct)
     {
@@ -41,7 +53,7 @@ public class NotificationService(ThreatwatchDbContext db)
             .FirstOrDefaultAsync(u => u.Id == userId, ct);
         if (user is null)
         {
-            return new NotificationSummaryDto(0, false, [], DateTimeOffset.UtcNow);
+            return Empty();
         }
 
         var follows = await db.UserFollows
@@ -49,22 +61,24 @@ public class NotificationService(ThreatwatchDbContext db)
             .Where(f => f.UserId == userId)
             .Select(f => f.Technology)
             .ToListAsync(ct);
-
-        if (follows.Count == 0)
+        var deps = (await ProjectService.LoadMergedAsync(db, [userId], ct)).GetValueOrDefault(userId) ?? [];
+        if (follows.Count == 0 && deps.Count == 0)
         {
-            return new NotificationSummaryDto(0, false, [], DateTimeOffset.UtcNow);
+            return Empty();
         }
 
-        var hasCursor = user.LastNotificationsReadAt.HasValue;
-        var lookbackStart = user.LastNotificationsReadAt ?? DateTimeOffset.UtcNow.AddDays(-DefaultLookbackDays);
+        var rules = await db.AlertPreferences.AsNoTracking().FirstOrDefaultAsync(p => p.UserId == userId, ct) ?? DefaultRules;
+        var depIndex = deps.ToLookup(d => (d.Ecosystem, d.Name));
+        var cursor = user.LastNotificationsReadAt;
+        var windowStart = DateTimeOffset.UtcNow.AddDays(-DefaultLookbackDays);
 
         // Vulnerabilities recently published OR recently added to CISA KEV.
         var recentVulns = await db.Vulnerabilities
             .AsNoTracking()
-            .Where(v =>
-                v.PublishedAt >= lookbackStart
-                || v.Events.Any(e => e.EventType == VulnerabilityEventType.KnownExploitedAdded
-                    && e.EventAt >= lookbackStart))
+            .Where(v => !v.IsWithdrawn
+                && (v.PublishedAt >= windowStart
+                    || v.Events.Any(e => e.EventType == VulnerabilityEventType.KnownExploitedAdded
+                        && e.EventAt >= windowStart)))
             .Select(v => new
             {
                 v.Id,
@@ -72,10 +86,11 @@ public class NotificationService(ThreatwatchDbContext db)
                 v.Title,
                 v.Severity,
                 v.CvssScore,
+                v.EpssScore,
                 v.IsKnownExploited,
                 v.PublishedAt,
                 Packages = v.AffectedPackages
-                    .Select(p => new { p.Ecosystem, p.PackageName, p.DisplayName })
+                    .Select(p => new { p.Ecosystem, p.PackageName, p.DisplayName, p.AffectedRanges })
                     .ToList(),
                 KevAddedAt = v.Events
                     .Where(e => e.EventType == VulnerabilityEventType.KnownExploitedAdded)
@@ -84,52 +99,76 @@ public class NotificationService(ThreatwatchDbContext db)
             })
             .ToListAsync(ct);
 
-        var items = new List<(DateTimeOffset ActivityAt, NotificationItemDto Item)>();
+        var relevant = new List<(int Rank, NotificationItemDto Item)>();
         foreach (var vuln in recentVulns)
         {
-            var activityAt = vuln.KevAddedAt > lookbackStart && vuln.KevAddedAt > vuln.PublishedAt
-                ? vuln.KevAddedAt!.Value
-                : vuln.PublishedAt;
+            var activityAt = vuln.KevAddedAt > vuln.PublishedAt ? vuln.KevAddedAt!.Value : vuln.PublishedAt;
 
-            foreach (var tech in follows)
+            // 1. Version-checked hit in one of the user's projects: always worth knowing.
+            string? reason = null;
+            foreach (var p in vuln.Packages)
             {
-                var matched = vuln.Packages.Any(pkg =>
-                    TechnologyPackageMatcher.Matches(tech, pkg.Ecosystem, pkg.PackageName, pkg.DisplayName));
-                if (!matched)
+                foreach (var dep in depIndex[(p.Ecosystem, p.PackageName)])
                 {
-                    continue;
+                    var check = OsvRangeEvaluator.Evaluate(p.Ecosystem, p.AffectedRanges, dep.Version);
+                    if (check.Verdict != RangeVerdict.Affected) continue;
+                    reason = $"Affects {dep.ProjectName}: {dep.DisplayName} {dep.Version}"
+                        + (check.FixedIn is null ? "" : $" (fixed in {check.FixedIn})");
+                    break;
                 }
 
-                items.Add((activityAt, new NotificationItemDto(
-                    vuln.Id,
-                    vuln.CanonicalId,
-                    vuln.Title,
-                    vuln.Severity,
-                    vuln.CvssScore,
-                    vuln.IsKnownExploited,
-                    activityAt,
-                    tech.Name,
-                    tech.Slug)));
-                break; // one entry per vulnerability; first matched follow wins
+                if (reason is not null) break;
             }
+
+            Technology? matched = null;
+            if (reason is null)
+            {
+                // 2. Followed technology, preferring a specific follow over an ecosystem-wide one.
+                var matches = follows.Where(t => vuln.Packages.Any(pkg =>
+                    TechnologyPackageMatcher.Matches(t, pkg.Ecosystem, pkg.PackageName, pkg.DisplayName))).ToList();
+                matched = matches.FirstOrDefault(t => !TechnologyPackageMatcher.IsEcosystemWide(t)) ?? matches.FirstOrDefault();
+                if (matched is null) continue;
+
+                var passes = TechnologyPackageMatcher.IsEcosystemWide(matched)
+                    ? vuln.IsKnownExploited || vuln.Severity == Severity.Critical
+                    : AlertService.Passes(rules, vuln.Severity, vuln.IsKnownExploited, vuln.EpssScore);
+                if (!passes) continue;
+                reason = $"Affects {matched.Name}";
+            }
+
+            var rank = (vuln.IsKnownExploited ? 1000 : 0) + (matched is null ? 500 : 0) + (int)vuln.Severity * 100;
+            relevant.Add((rank, new NotificationItemDto(
+                vuln.Id,
+                vuln.CanonicalId,
+                vuln.Title,
+                vuln.Severity,
+                vuln.CvssScore,
+                vuln.IsKnownExploited,
+                activityAt,
+                matched?.Name ?? reason!,
+                matched?.Slug ?? string.Empty,
+                IsNew: cursor is null || activityAt > cursor.Value,
+                Reason: reason)));
         }
 
-        var top = items
-            .OrderByDescending(i => i.ActivityAt)
-            .Take(MaxItems)
-            .Select(i => i.Item)
+        var ordered = relevant
+            .OrderByDescending(r => r.Item.IsNew)
+            .ThenByDescending(r => r.Rank)
+            .ThenByDescending(r => r.Item.ActivityAt)
+            .Select(r => r.Item)
             .ToList();
-
-        var unread = hasCursor
-            ? items.Count(i => i.ActivityAt > user.LastNotificationsReadAt!.Value)
-            : items.Count;
+        var top = ordered.Take(MaxItems).ToList();
+        var newItems = ordered.Where(i => i.IsNew).ToList();
 
         return new NotificationSummaryDto(
-            unread,
-            top.Any(i => i.IsKnownExploited),
+            newItems.Count,
+            newItems.Any(i => i.IsKnownExploited),
             top,
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            ordered.Count);
     }
+
+    private static NotificationSummaryDto Empty() => new(0, false, [], DateTimeOffset.UtcNow);
 
     public async Task<NotificationSummaryDto> MarkAllReadAsync(Guid userId, CancellationToken ct)
     {

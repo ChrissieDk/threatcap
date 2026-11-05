@@ -164,6 +164,7 @@ builder.Services.AddSecurityDataSource<OsvDataSource>(
 builder.Services.Configure<OsvOptions>(builder.Configuration.GetSection("Osv"));
 builder.Services.Configure<IngestionOptions>(builder.Configuration.GetSection("Ingestion"));
 builder.Services.AddSingleton<IngestionRunner>();
+builder.Services.AddHostedService<SeverityRepairService>(); // before ingestion: hosted services start in order
 builder.Services.AddHostedService<IngestionWorker>();
 builder.Services.AddAlerts(builder.Configuration);
 builder.Services.AddHostedService<OsvBackfillService>();

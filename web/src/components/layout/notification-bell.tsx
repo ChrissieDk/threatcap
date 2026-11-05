@@ -27,6 +27,8 @@ type NotificationItem = {
   activityAt: string
   matchedTechnologyName: string
   matchedTechnologySlug: string
+  isNew: boolean
+  reason: string | null
 }
 
 type NotificationSummary = {
@@ -34,14 +36,16 @@ type NotificationSummary = {
   hasKevUnread: boolean
   items: NotificationItem[]
   generatedAt: string
+  totalRelevant: number
 }
 
 const POLL_INTERVAL_MS = 60_000
 
 export function NotificationBell() {
   const [summary, setSummary] = useState<NotificationSummary | null>(null)
-  const [pending, setPending] = useState(false)
   const [open, setOpen] = useState(false)
+  // Items that were new when the bell was opened keep their dot until it closes.
+  const [seenIds, setSeenIds] = useState<Set<string>>(new Set())
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const refresh = useCallback(async () => {
@@ -69,28 +73,33 @@ export function NotificationBell() {
     }
   }, [refresh])
 
-  async function markAllRead() {
-    setPending(true)
+  /** Opening the bell counts as seeing what is in it, so the badge never nags on every sign-in. */
+  async function markSeen() {
     try {
       const res = await fetch("/api/v1/notifications/read", {
         method: "POST",
         headers: { [REQUEST_HEADER]: "1" },
       })
-      if (res.ok) {
-        setSummary((await res.json()) as NotificationSummary)
-      }
+      if (res.ok) setSummary((await res.json()) as NotificationSummary)
     } catch {
       // Keep last known state; the next poll will converge.
-    } finally {
-      setPending(false)
     }
+  }
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next)
+    if (next && summary && summary.unreadCount > 0) {
+      setSeenIds(new Set(summary.items.filter((i) => i.isNew).map((i) => i.vulnerabilityId)))
+      void markSeen()
+    }
+    if (!next) setSeenIds(new Set())
   }
 
   const unread = summary?.unreadCount ?? 0
   const hasKev = summary?.hasKevUnread ?? false
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
+    <DropdownMenu open={open} onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" aria-label="Notifications" className="relative">
           <Bell className="size-4" aria-hidden />
@@ -100,7 +109,7 @@ export function NotificationBell() {
                 hasKev ? "bg-severity-critical" : "bg-primary"
               }`}
             >
-              {unread > 20 ? "20+" : unread}
+              {unread > 9 ? "9+" : unread}
             </span>
           )}
         </Button>
@@ -108,9 +117,9 @@ export function NotificationBell() {
       <DropdownMenuContent align="end" className="w-80 p-0">
         <DropdownMenuLabel className="flex items-center justify-between px-3 pt-2.5">
           <span className="text-foreground text-sm font-semibold">Notifications</span>
-          {summary && unread > 0 && (
+          {summary && (unread > 0 || seenIds.size > 0) && (
             <span className="text-muted-foreground text-xs">
-              {unread} unread{hasKev ? " · KEV activity" : ""}
+              {Math.max(unread, seenIds.size)} new{hasKev || summary.items.some((i) => seenIds.has(i.vulnerabilityId) && i.isKnownExploited) ? " · KEV activity" : ""}
             </span>
           )}
         </DropdownMenuLabel>
@@ -118,7 +127,7 @@ export function NotificationBell() {
         <div className="max-h-96 overflow-y-auto">
           {!summary || summary.items.length === 0 ? (
             <div className="text-muted-foreground px-3 py-8 text-center text-sm">
-              No new activity for your follows
+              Nothing that matches your alert rules right now
             </div>
           ) : (
             summary.items.map((item) => (
@@ -129,6 +138,9 @@ export function NotificationBell() {
                   className="hover:bg-surface-2 block px-3 py-2.5"
                 >
                   <div className="flex items-center gap-2">
+                    {(item.isNew || seenIds.has(item.vulnerabilityId)) && (
+                      <span className="bg-primary size-1.5 shrink-0 rounded-full" role="img" aria-label="New" />
+                    )}
                     <SeverityBadge severity={item.severity} />
                     {item.isKnownExploited && (
                       <span className="text-severity-high inline-flex items-center gap-1 text-[11px] font-medium">
@@ -142,7 +154,7 @@ export function NotificationBell() {
                   <div className="text-muted-foreground mt-0.5 flex items-center gap-2 text-[11px]">
                     <span className="font-mono">{item.canonicalId}</span>
                     <span>·</span>
-                    <span>{item.matchedTechnologyName}</span>
+                    <span className="truncate">{item.reason ?? item.matchedTechnologyName}</span>
                   </div>
                 </Link>
               </DropdownMenuItem>
@@ -152,16 +164,20 @@ export function NotificationBell() {
         {summary && summary.items.length > 0 && (
           <>
             <DropdownMenuSeparator />
-            <div className="p-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={markAllRead}
-                disabled={pending || unread === 0}
-              >
-                Mark all read
-              </Button>
+            <div className="text-muted-foreground flex items-center justify-between gap-2 px-3 py-2 text-[11px]">
+              <span>
+                {summary.totalRelevant > summary.items.length
+                  ? `Top ${summary.items.length} of ${summary.totalRelevant}`
+                  : `${summary.items.length} matching your alert rules`}
+              </span>
+              <span className="flex gap-3">
+                <Link href="/act-now" onClick={() => setOpen(false)} className="text-primary hover:underline">
+                  Act now
+                </Link>
+                <Link href="/preferences" onClick={() => setOpen(false)} className="text-primary hover:underline">
+                  Alert rules
+                </Link>
+              </span>
             </div>
           </>
         )}
