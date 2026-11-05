@@ -159,6 +159,7 @@ builder.Services.AddSecurityDataSource<OsvDataSource>(
     new Uri("https://storage.googleapis.com/"),
     attemptTimeout: TimeSpan.FromMinutes(2));
 builder.Services.Configure<OsvOptions>(builder.Configuration.GetSection("Osv"));
+builder.Services.Configure<IngestionOptions>(builder.Configuration.GetSection("Ingestion"));
 builder.Services.AddSingleton<IngestionRunner>();
 builder.Services.AddHostedService<IngestionWorker>();
 builder.Services.AddHostedService<OsvBackfillService>();

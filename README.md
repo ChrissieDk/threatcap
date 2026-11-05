@@ -69,6 +69,8 @@ Threatwatch is a developer security intelligence dashboard: it ingests vulnerabi
 |---|---|---|
 | `ConnectionStrings__DefaultConnection` | api | PostgreSQL connection string (env-var override for `ConnectionStrings:DefaultConnection`; a local default is in `appsettings.json`) |
 | `Auth__ApiKey` | api | Required. Bearer token for every `/api/v1` route. Locally this lives in `api/src/Threatwatch.Api/appsettings.Development.local.json` (gitignored). At least 16 characters. |
+| `Ingestion__AutoStart` | api | Optional (default `true`). Start syncing feeds on boot. Set `false` to stay idle until a signed-in user triggers a sync. |
+| `Ingestion__PollSeconds` | api | Optional (default `30`). How often the worker checks for due providers. |
 | `OSV_BACKFILL_DIR` | api | Optional. Directory of extracted OSV JSON files to import on startup. The worker already pulls advisories modified in the last 90 days from the public GCS bucket. |
 | `API_URL` | web | Optional server-side base URL of the API (default: `http://localhost:5080`). Not exposed to the browser. |
 | `API_KEY` | web | Required server-side copy of `Auth__ApiKey`, in `web/.env.local` (gitignored). The browser calls same-origin `/api/v1/*`, and Next.js attaches this key. |
