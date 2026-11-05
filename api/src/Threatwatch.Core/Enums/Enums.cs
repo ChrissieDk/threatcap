@@ -91,3 +91,23 @@ public enum IngestionSource
     Epss = 2,
     StatusPage = 3,
 }
+
+public enum AlertChannelType
+{
+    Email = 0,
+    Webhook = 1,
+    Ntfy = 2,
+    BrowserPush = 3,
+}
+
+public enum AlertDeliveryMode
+{
+    Instant = 0,
+    DailyDigest = 1,
+}
+
+public enum AlertItemKind
+{
+    Vulnerability = 0,
+    Incident = 1,
+}

@@ -3,6 +3,7 @@ import Link from "next/link"
 import {
   Activity,
   Boxes,
+  FolderGit2,
   LayoutDashboard,
   MessagesSquare,
   Radar,
@@ -33,6 +34,7 @@ export const NAV_SECTIONS: Array<{ label: string; items: NavItem[] }> = [
   {
     label: "Personal",
     items: [
+      { href: "/projects", label: "Projects", icon: FolderGit2 },
       { href: "/following", label: "Following", icon: Rss },
       { href: "/technologies", label: "Technologies", icon: Boxes },
       { href: "/preferences", label: "Preferences", icon: Settings },

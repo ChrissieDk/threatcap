@@ -90,10 +90,11 @@ public class NotificationServiceTests : IDisposable
 
         var summary = await _notifications.GetAsync(_userId, CancellationToken.None);
 
-        // The 400-day-old vulnerability published before the cursor drops out entirely;
-        // the 2-day-old KEV event is before the cursor too, so nothing is unread.
+        // Nothing happened after the cursor, so nothing is new. Recent items stay listed as seen
+        // so opening the bell never makes context disappear.
         Assert.Equal(0, summary.UnreadCount);
-        Assert.DoesNotContain(summary.Items, i => i.CanonicalId == "GHSA-lodash-1");
+        Assert.All(summary.Items, i => Assert.False(i.IsNew));
+        Assert.DoesNotContain(summary.Items, i => i.CanonicalId == "GHSA-old-400d");
     }
 
     [Fact]

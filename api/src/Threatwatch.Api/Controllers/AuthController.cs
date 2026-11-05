@@ -2,10 +2,16 @@ using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using System.Text;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 using Threatwatch.Api.Infrastructure;
+using Threatwatch.Core.Alerts;
 using Threatwatch.Core.Entities;
 using Threatwatch.Core.Identity;
+using Threatwatch.Ingestion.Alerts;
 using Threatwatch.Ingestion.Workers;
 
 namespace Threatwatch.Api.Controllers;
@@ -16,8 +22,14 @@ namespace Threatwatch.Api.Controllers;
 public class AuthController(
     UserManager<UserAccount> users,
     SignInManager<UserAccount> signIn,
-    IngestionRunner ingestion) : ControllerBase
+    IngestionRunner ingestion,
+    SmtpMailer mailer,
+    IMemoryCache cache,
+    IOptions<AlertOptions> alertOptions,
+    ILogger<AuthController> logger) : ControllerBase
 {
+    private static readonly TimeSpan VerificationResendCooldown = TimeSpan.FromSeconds(60);
+
     public const string BrowserHeader = "X-Threatwatch-Request";
 
     private static readonly string DummyHash = new PasswordHasher<UserAccount>().HashPassword(
@@ -79,7 +91,91 @@ public class AuthController(
 
         await signIn.SignInAsync(user, isPersistent: true);
         ingestion.RequestSync();
+        if (mailer.IsConfigured)
+        {
+            // Best effort: a mail outage must not block registration; users can resend later.
+            await TrySendVerificationAsync(user, HttpContext.RequestAborted);
+        }
+
         return Ok(ToPayload(user));
+    }
+
+    [HttpPost("verify-email/send")]
+    public async Task<IActionResult> SendVerification()
+    {
+        if (!HasBrowserHeader())
+        {
+            return MissingHeader();
+        }
+
+        var user = await users.GetUserAsync(User);
+        if (user is null)
+        {
+            return ApiError.ToResult(new ApiError("unauthorized", "Sign in required."), StatusCodes.Status401Unauthorized);
+        }
+
+        if (user.EmailConfirmed)
+        {
+            return Ok(new { alreadyVerified = true });
+        }
+
+        if (!mailer.IsConfigured)
+        {
+            return ApiError.ToResult(
+                ApiError.Validation("Email is not configured on this server."), StatusCodes.Status400BadRequest);
+        }
+
+        if (!cache.TryGetValue(CooldownKey(user.Id), out _))
+        {
+            cache.Set(CooldownKey(user.Id), true, VerificationResendCooldown);
+            var sendError = await TrySendVerificationAsync(user, HttpContext.RequestAborted);
+            if (sendError is not null)
+            {
+                cache.Remove(CooldownKey(user.Id));
+                return ApiError.ToResult(
+                    new ApiError("unavailable", sendError),
+                    StatusCodes.Status502BadGateway);
+            }
+        }
+
+        return Ok(new { sent = true });
+    }
+
+    [HttpPost("verify-email/confirm")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ConfirmEmail([FromBody] ConfirmEmailRequest? request)
+    {
+        if (!HasBrowserHeader())
+        {
+            return MissingHeader();
+        }
+
+        // One generic failure for every problem so the endpoint reveals nothing about accounts.
+        var failure = ApiError.ToResult(
+            ApiError.Validation("This verification link is invalid or has expired."), StatusCodes.Status400BadRequest);
+        if (string.IsNullOrWhiteSpace(request?.UserId) || string.IsNullOrWhiteSpace(request.Token) || request.Token.Length > 2000)
+        {
+            return failure;
+        }
+
+        var user = await users.FindByIdAsync(request.UserId);
+        if (user is null)
+        {
+            return failure;
+        }
+
+        string token;
+        try
+        {
+            token = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(request.Token));
+        }
+        catch (FormatException)
+        {
+            return failure;
+        }
+
+        var result = await users.ConfirmEmailAsync(user, token);
+        return result.Succeeded ? Ok(new { verified = true }) : failure;
     }
 
     [HttpPost("login")]
@@ -150,6 +246,29 @@ public class AuthController(
         return Ok(ToPayload(user));
     }
 
+    private static string CooldownKey(Guid userId) => $"verify-email:{userId}";
+
+    private async Task<string?> TrySendVerificationAsync(UserAccount user, CancellationToken ct)
+    {
+        try
+        {
+            var raw = await users.GenerateEmailConfirmationTokenAsync(user);
+            var token = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(raw));
+            var link = $"{alertOptions.Value.WebBaseUrl.TrimEnd('/')}/verify-email?uid={user.Id}&token={token}";
+            await mailer.SendAsync(
+                user.Email!,
+                "Verify your Threatwatch email",
+                $"Hi {user.DisplayName},\n\nConfirm your email address to receive Threatwatch alerts by email:\n\n{link}\n\nThe link expires in 24 hours. If you did not create this account you can ignore this message.",
+                ct);
+            return null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Could not send verification email for user {UserId}.", user.Id);
+            return ex is AlertSendException ? ex.Message : "Could not send the verification email.";
+        }
+    }
+
     private bool HasBrowserHeader() =>
         Request.Headers.TryGetValue(BrowserHeader, out var value) && value == "1";
 
@@ -170,14 +289,18 @@ public class AuthController(
     private IActionResult InvalidCredentials() =>
         ApiError.ToResult(new ApiError("unauthorized", "Invalid email or password."), StatusCodes.Status401Unauthorized);
 
-    private static object ToPayload(UserAccount user) => new
+    private object ToPayload(UserAccount user) => new
     {
         user.Id,
         user.Email,
         user.DisplayName,
+        user.EmailConfirmed,
+        EmailVerificationAvailable = mailer.IsConfigured,
     };
 
     public sealed record RegisterRequest(string? Email, string? Password, string? DisplayName);
 
     public sealed record LoginRequest(string? Email, string? Password);
+
+    public sealed record ConfirmEmailRequest(string? UserId, string? Token);
 }

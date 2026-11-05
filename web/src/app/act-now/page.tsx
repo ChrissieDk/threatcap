@@ -3,7 +3,8 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { connection } from "next/server"
 import { ApiError, apiGet } from "@/lib/api/client"
-import type { ActNowItem, DashboardSummary } from "@/lib/api/types"
+import type { ActNowItem, DashboardSummary, ProjectOverview } from "@/lib/api/types"
+import { ProjectRisk } from "@/components/projects/project-risk"
 import { ActNowStack } from "@/components/overview/act-now-stack"
 import { EmptyState } from "@/components/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -22,13 +23,16 @@ async function tryGet<T>(path: string): Promise<T | null> {
 async function ActNowList() {
   await connection()
 
-  const [actNow, summary] = await Promise.all([
+  const [actNow, summary, projects] = await Promise.all([
     tryGet<ActNowItem[]>("/api/v1/dashboard/act-now?top=20&days=7"),
     tryGet<DashboardSummary>("/api/v1/dashboard/summary?days=7"),
+    tryGet<ProjectOverview>("/api/v1/projects/overview?top=10"),
   ])
   const hasFollows = (summary?.followedCount ?? 0) > 0
+  const hasProjects = (projects?.projectCount ?? 0) > 0
+  const projectSection = projects ? <ProjectRisk overview={projects} /> : null
 
-  if (actNow === null) {
+  if (actNow === null && !hasProjects) {
     return (
       <EmptyState
         title="Act now unavailable"
@@ -39,7 +43,8 @@ async function ActNowList() {
 
   if (!hasFollows) {
     return (
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-4">
+        {projectSection}
         <EmptyState
           title="No technologies followed yet"
           description="Follow the technologies in your stack to see what you should patch first."
@@ -56,16 +61,27 @@ async function ActNowList() {
     )
   }
 
-  if (actNow.length === 0) {
+  if (!actNow || actNow.length === 0) {
     return (
-      <EmptyState
-        title="Nothing needs action right now"
-        description="No recent disclosures or newly exploited vulnerabilities matched technologies you follow."
-      />
+      <div className="flex flex-col gap-4">
+        {projectSection}
+        <EmptyState
+          title="Nothing needs action right now"
+          description="No recent disclosures or newly exploited vulnerabilities matched technologies you follow."
+        />
+      </div>
     )
   }
 
-  return <ActNowStack items={actNow} showHeader={false} />
+  return (
+    <div className="flex flex-col gap-6">
+      {projectSection}
+      <div className="flex flex-col gap-2">
+        <h2 className="text-sm font-medium">In technologies you follow</h2>
+        <ActNowStack items={actNow} showHeader={false} />
+      </div>
+    </div>
+  )
 }
 
 function Fallback() {

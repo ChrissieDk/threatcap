@@ -20,7 +20,7 @@ public sealed record IngestionSyncStatusDto(
 
 /// <summary>
 /// Single-flight coordinator for provider syncs. Nothing runs until
-/// <see cref="RequestSync"/> (sign-in or Refresh). The hosted worker then keeps
+/// <see cref="RequestSync"/> (boot auto-start, sign-in or Refresh). The hosted worker then keeps
 /// due providers on their intervals so two OSV runs never overlap.
 /// </summary>
 public sealed class IngestionRunner(

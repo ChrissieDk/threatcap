@@ -49,7 +49,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
         return
       }
 
-      router.push(safeNextPath(searchParams.get("next")))
+      router.push(isRegister ? "/preferences?welcome=1" : safeNextPath(searchParams.get("next")))
       router.refresh()
     } catch {
       setError("Could not reach the server. Try again.")
@@ -67,7 +67,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
         <h1 className="text-base font-semibold">{isRegister ? "Create account" : "Sign in"}</h1>
         <p className="text-muted-foreground mt-1 text-xs">
           {isRegister
-            ? "Use a valid email. No verification message is sent."
+            ? "Use an email you can access. You can verify it later to get alerts by email."
             : "Sign in with your email and password."}
         </p>
 

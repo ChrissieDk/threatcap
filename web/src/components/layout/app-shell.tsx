@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { Menu } from "lucide-react"
 import { Brand, SidebarNav } from "@/components/layout/sidebar"
 import { GlobalSearch } from "@/components/layout/global-search"
+import { SetupBanner } from "@/components/layout/setup-banner"
 import { NotificationBell } from "@/components/layout/notification-bell"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
@@ -12,7 +13,7 @@ import { endSession } from "@/lib/auth"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  if (pathname === "/login" || pathname === "/register") {
+  if (pathname === "/login" || pathname === "/register" || pathname === "/verify-email") {
     return <>{children}</>
   }
 
@@ -36,6 +37,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6">
+          <SetupBanner />
           {children}
         </main>
       </div>

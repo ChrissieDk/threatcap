@@ -11,6 +11,7 @@ using Threatwatch.Core.Entities;
 using Threatwatch.Core.Identity;
 using Threatwatch.Core.Services;
 using Threatwatch.Ingestion.Abstractions;
+using Threatwatch.Ingestion.Alerts;
 using Threatwatch.Ingestion.Providers;
 using Threatwatch.Ingestion.Workers;
 
@@ -79,6 +80,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 });
 
 builder.Services.AddAuthorization();
+builder.Services.AddMemoryCache();
 
 builder.Services.AddControllers(options =>
     {
@@ -137,6 +139,7 @@ builder.Services.AddScoped<TechnologyQueryService>();
 builder.Services.AddScoped<FollowService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<IncidentQueryService>();
+builder.Services.AddScoped<Threatwatch.Core.Projects.ProjectService>();
 
 // Ingestion
 builder.Services.AddScoped<VulnerabilityUpserter>();
@@ -159,8 +162,11 @@ builder.Services.AddSecurityDataSource<OsvDataSource>(
     new Uri("https://storage.googleapis.com/"),
     attemptTimeout: TimeSpan.FromMinutes(2));
 builder.Services.Configure<OsvOptions>(builder.Configuration.GetSection("Osv"));
+builder.Services.Configure<IngestionOptions>(builder.Configuration.GetSection("Ingestion"));
 builder.Services.AddSingleton<IngestionRunner>();
+builder.Services.AddHostedService<SeverityRepairService>(); // before ingestion: hosted services start in order
 builder.Services.AddHostedService<IngestionWorker>();
+builder.Services.AddAlerts(builder.Configuration);
 builder.Services.AddHostedService<OsvBackfillService>();
 builder.Services.AddHostedService<DbSeederHostedService>();
 

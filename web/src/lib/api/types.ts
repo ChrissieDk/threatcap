@@ -182,3 +182,105 @@ export type ProviderHealth = {
   lastError: string | null;
   lastDurationMs: number | null;
 };
+
+export type AlertChannelType = "Email" | "Webhook" | "Ntfy" | "BrowserPush"
+export type AlertDeliveryMode = "Instant" | "DailyDigest"
+
+export type AlertPreference = {
+  minSeverity: "Low" | "Medium" | "High" | "Critical"
+  alwaysAlertKnownExploited: boolean
+  minEpss: number | null
+  includeIncidents: boolean
+  mode: AlertDeliveryMode
+}
+
+export type AlertChannel = {
+  id: string
+  type: AlertChannelType
+  label: string
+  targetHint: string | null
+  isEnabled: boolean
+  lastDeliveredAt: string | null
+  lastError: string | null
+}
+
+export type AlertState = {
+  preference: AlertPreference
+  channels: AlertChannel[]
+  emailAvailable: boolean
+  emailVerified: boolean
+  email: string | null
+  followedCount: number
+  pushPublicKey: string | null
+}
+
+export type NtfySetup = { topicUrl: string; server: string; topic: string }
+
+export type ProjectVersionKind = "Exact" | "Declared"
+
+export type ProjectSummary = {
+  id: string
+  name: string
+  dependencyCount: number
+  directCount: number
+  uncheckedCount: number
+  findingCount: number
+  criticalHighCount: number
+  knownExploitedCount: number
+  sourceFiles: string[]
+  updatedAt: string
+}
+
+export type ProjectFinding = {
+  vulnerabilityId: string
+  canonicalId: string
+  title: string
+  severity: Severity
+  cvssScore: number | null
+  epssScore: number | null
+  isKnownExploited: boolean
+  priorityScore: number | null
+  ecosystem: string
+  package: string
+  version: string
+  versionKind: ProjectVersionKind
+  isDirect: boolean
+  isDev: boolean
+  fixedIn: string | null
+}
+
+export type ProjectDependency = {
+  ecosystem: string
+  name: string
+  version: string | null
+  versionKind: ProjectVersionKind
+  isDirect: boolean
+  isDev: boolean
+}
+
+export type ProjectDetail = {
+  summary: ProjectSummary
+  findings: ProjectFinding[]
+  dependencies: ProjectDependency[]
+}
+
+export type ProjectUploadResult = {
+  id: string
+  dependencyCount: number
+  warnings: string[]
+}
+
+export type ProjectFindingWithProject = {
+  projectId: string
+  projectName: string
+  finding: ProjectFinding
+}
+
+export type ProjectOverview = {
+  projectCount: number
+  projectsAffected: number
+  findingCount: number
+  criticalHighCount: number
+  knownExploitedCount: number
+  top: ProjectFindingWithProject[]
+}

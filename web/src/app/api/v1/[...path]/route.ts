@@ -9,7 +9,7 @@ async function proxyRequest(
 ) {
   await connection()
 
-  if (request.method !== "GET" && request.method !== "POST" && request.method !== "DELETE") {
+  if (request.method !== "GET" && request.method !== "POST" && request.method !== "PUT" && request.method !== "DELETE") {
     return Response.json(
       { error: { code: "validation_error", message: "Method not allowed." } },
       { status: 405 }
@@ -75,4 +75,5 @@ async function proxyRequest(
 
 export const GET = proxyRequest
 export const POST = proxyRequest
+export const PUT = proxyRequest
 export const DELETE = proxyRequest

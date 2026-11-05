@@ -2,9 +2,11 @@ import { ApiError, apiGet } from "@/lib/api/client"
 import type {
   DailyPoint,
   DashboardSummary,
+  ProjectOverview,
   Severity,
   VulnerabilityListResponse,
 } from "@/lib/api/types"
+import { ProjectRisk } from "@/components/projects/project-risk"
 import { MetricStrip } from "@/components/overview/metric-strip"
 import { ActivityChart } from "@/components/overview/activity-chart"
 import { FeedRow } from "@/components/overview/feed-row"
@@ -40,7 +42,7 @@ export async function OverviewContent({ scope }: { scope?: string }) {
   const scoped = hasFollows && scope !== "all"
   const followQs = scoped ? "&following=true" : ""
 
-  const [summary, daily, vulns] = await Promise.all([
+  const [summary, daily, vulns, projects] = await Promise.all([
     scoped
       ? tryGet<DashboardSummary>(`/api/v1/dashboard/summary?days=${DAYS}${followQs}`)
       : Promise.resolve(baseline),
@@ -48,6 +50,7 @@ export async function OverviewContent({ scope }: { scope?: string }) {
     tryGet<VulnerabilityListResponse>(
       `/api/v1/vulnerabilities?from=${sevenDaysAgo()}&page=1&pageSize=${PAGE_SIZE}&sort=-publishedAt${followQs}`
     ),
+    tryGet<ProjectOverview>("/api/v1/projects/overview?top=5"),
   ])
 
   if (!summary && !vulns) {
@@ -93,10 +96,16 @@ export async function OverviewContent({ scope }: { scope?: string }) {
       </div>
 
       {summary ? (
-        <MetricStrip summary={summary} scoped={scoped} />
+        <MetricStrip
+          summary={summary}
+          scoped={scoped}
+          projectFindings={projects && projects.projectCount > 0 ? projects.findingCount : null}
+        />
       ) : (
         <p className="text-muted-foreground text-xs">Summary unavailable — the API could not be reached.</p>
       )}
+
+      {projects && <ProjectRisk overview={projects} compact />}
 
       {daily ? (
         <ActivityChart initialDays={DAYS} initialData={daily} following={scoped} />

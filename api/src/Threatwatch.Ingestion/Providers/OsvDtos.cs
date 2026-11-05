@@ -1,6 +1,8 @@
 using System.Globalization;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Threatwatch.Core.Enums;
+using Threatwatch.Core.Scoring;
 using Threatwatch.Ingestion.Normalization;
 
 namespace Threatwatch.Ingestion.Providers;
@@ -18,6 +20,7 @@ public sealed class OsvRecord
     [JsonPropertyName("severity")] public List<OsvSeverity>? Severity { get; set; }
     [JsonPropertyName("affected")] public List<OsvAffected>? Affected { get; set; }
     [JsonPropertyName("references")] public List<OsvReference>? References { get; set; }
+    [JsonPropertyName("database_specific")] public JsonElement? DatabaseSpecific { get; set; }
 
     public List<string> AllAliases()
     {
@@ -44,27 +47,60 @@ public sealed class OsvRecord
         => DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture,
             DateTimeStyles.RoundtripKind, out var dto) ? dto : null;
 
-    /// <summary>Pick the severity entry with the highest base score; derive the band.</summary>
-    public (decimal Score, string? Vector, Severity Band, string Source)? BestSeverity()
+    /// <summary>
+    /// Best severity for this advisory. A CVSS v3 vector is scored exactly; otherwise the advisory's
+    /// own label (GitHub's "severity": LOW/MODERATE/HIGH/CRITICAL) sets the band. CVSS v4 vectors are
+    /// kept for display but cannot be scored here, so they never produce a number.
+    /// </summary>
+    public (decimal? Score, string? Vector, Severity Band, string Source)? BestSeverity()
     {
-        (decimal, string?, Severity, string)? best = null;
+        decimal? v3Score = null;
+        string? v3Vector = null;
+        string? v4Vector = null;
+        decimal? plainScore = null;
+
         foreach (var sev in Severity ?? [])
         {
-            decimal? score = sev.ScoreNumber ?? CvssParser.ExtractScore(sev.Score ?? sev.Vector);
-            if (!score.HasValue)
+            var vector = sev.Vector;
+            if (vector is not null && vector.StartsWith("CVSS:3", StringComparison.OrdinalIgnoreCase))
             {
-                continue;
+                var score = CvssCalculator.ScoreV3(vector);
+                if (score is { } s && (v3Score is null || s > v3Score)) (v3Score, v3Vector) = (s, vector);
             }
-
-            var band = CvssParser.Band(score.Value);
-            var source = sev.Type ?? "CVSS";
-            if (best is null || score.Value > best.Value.Item1)
+            else if (vector is not null && vector.StartsWith("CVSS:4", StringComparison.OrdinalIgnoreCase))
             {
-                best = (score.Value, sev.Vector ?? sev.Score, band, source);
+                v4Vector ??= vector;
+            }
+            else if (sev.ScoreNumber is { } n and >= 0 and <= 10 && (plainScore is null || n > plainScore))
+            {
+                plainScore = n;
             }
         }
 
-        return best;
+        if (v3Score is { } exact) return (exact, v3Vector, CvssParser.Band(exact), "CVSS_V3");
+        if (plainScore is { } plain) return (plain, null, CvssParser.Band(plain), "CVSS");
+
+        var label = LabelSeverity();
+        if (label != Core.Enums.Severity.Unknown) return (null, v4Vector, label, v4Vector is null ? "LABEL" : "CVSS_V4");
+        return v4Vector is null ? null : (null, v4Vector, Core.Enums.Severity.Unknown, "CVSS_V4");
+    }
+
+    private Severity LabelSeverity()
+    {
+        if (DatabaseSpecific is { ValueKind: JsonValueKind.Object } db
+            && db.TryGetProperty("severity", out var el) && el.ValueKind == JsonValueKind.String)
+        {
+            return el.GetString()?.Trim().ToUpperInvariant() switch
+            {
+                "CRITICAL" => Core.Enums.Severity.Critical,
+                "HIGH" => Core.Enums.Severity.High,
+                "MODERATE" or "MEDIUM" => Core.Enums.Severity.Medium,
+                "LOW" => Core.Enums.Severity.Low,
+                _ => Core.Enums.Severity.Unknown,
+            };
+        }
+
+        return Core.Enums.Severity.Unknown;
     }
 }
 
