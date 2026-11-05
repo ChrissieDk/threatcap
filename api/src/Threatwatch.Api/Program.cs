@@ -166,6 +166,8 @@ builder.Services.Configure<IngestionOptions>(builder.Configuration.GetSection("I
 builder.Services.AddSingleton<IngestionRunner>();
 builder.Services.AddHostedService<SeverityRepairService>(); // before ingestion: hosted services start in order
 builder.Services.AddHostedService<IngestionWorker>();
+builder.Services.Configure<RetentionOptions>(builder.Configuration.GetSection("Retention"));
+builder.Services.AddHostedService<RetentionService>();
 builder.Services.AddAlerts(builder.Configuration);
 builder.Services.AddHostedService<OsvBackfillService>();
 builder.Services.AddHostedService<DbSeederHostedService>();

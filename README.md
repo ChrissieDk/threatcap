@@ -1,15 +1,66 @@
 # Threatwatch
 
-Threatwatch is a developer security intelligence dashboard: it ingests vulnerability data from public feeds, normalizes and deduplicates it, and presents it through a web UI so developers can see what affects the technologies they use.
+Threatwatch is a free, self-hosted developer security intelligence dashboard. It ingests vulnerability advisories and vendor incident feeds from public sources, normalizes and de-duplicates them, scores and ranks them, and tells you what matters for the technologies and dependencies **you** actually use, in the app and through outbound alerts.
+
+No paid services are required. Everything runs on PostgreSQL, a .NET API and a Next.js frontend.
+
+## Contents
+
+- [Features](#features)
+- [How it works](#how-it-works)
+- [Monorepo layout](#monorepo-layout)
+- [Setup](#prerequisites)
+- [Configuration](#environment-variables)
+- [Projects](#projects-dependency-matching) and [Alerts](#alerts)
+- [Notifications](#notifications)
+- [Severity and priority scoring](#severity-and-priority-scoring)
+- [Data retention](#data-retention)
+- [API](#api)
+- [Development and tests](#development-and-tests)
+- [Data sources](#data-sources)
+- [Roadmap](#roadmap)
+
+## Features
+
+- **Vulnerability explorer.** Browse, search and filter advisories (CVE, GHSA, RUSTSEC, Go, malicious-package `MAL-` entries and more) by severity, ecosystem, technology and known-exploited status, with a detail page per advisory showing affected packages, fixed versions, aliases, references and a timeline of events.
+- **Priority ranking.** Every advisory gets a priority score combining CVSS, EPSS exploit probability and CISA KEV status, so the most urgent items rise to the top.
+- **Act now.** A ranked list of the highest-priority issues in your stack over the last 7 days, including findings from your projects.
+- **Overview dashboard.** Summary counts, a daily activity chart and your project findings at a glance.
+- **Technology catalog and following.** Follow specific technologies or whole ecosystems; every feed (Act now, incidents, notifications, alerts) is scoped to what you follow.
+- **Vendor incidents.** Outages and security incidents from public status pages (GitHub, npm, PyPI, Cloudflare, Docker), filtered to what you follow.
+- **Projects.** Drop in `package.json`, lockfiles, `.csproj`, `go.mod`, SBOMs and more (or paste them) and see which advisories hit the exact versions you run, with the version to upgrade to. Backend and frontend projects are supported.
+- **Outbound alerts.** Web Push, ntfy (phone), email and webhooks, with a guided one-click setup, idempotent delivery, batching or daily digests, and SSRF protection.
+- **In-app notification bell.** A short, ranked list of what needs attention, shown with the reason it matters, that never nags twice about the same thing.
+- **Accounts.** Email-and-password accounts with lockout, email verification and HttpOnly sessions.
+- **Self-managing data.** Scheduled retention keeps the database bounded; one-time repairs fix historical data.
+
+## How it works
+
+```
+ CISA KEV ─┐
+ OSV.dev ──┼─► ingestion workers ─► normalize / de-dupe / score ─► PostgreSQL ─► .NET API ─► Next.js UI
+ EPSS ─────┤                                                          │
+ Status    │                                                          └─► alert dispatcher ─► push / ntfy / email / webhook
+ pages ────┘
+```
+
+1. **Ingestion workers** poll each provider on an interval and upsert advisories keyed on a canonical ID, merging aliases (a CVE and its GHSA become one record).
+2. **Scoring** computes the CVSS base score, applies EPSS and KEV, and stores a priority score.
+3. **Matching** links advisories to technologies (by product/package) and to project dependencies (by ecosystem, package name and version range).
+4. **Delivery** happens in two ways: the API serves the UI, and the alert dispatcher pushes matches to your channels.
+5. **Retention** prunes stale data daily.
+
+The browser only ever talks to the Next.js server on its own origin. That server attaches the API key and forwards the session cookie, so the API key never reaches the browser.
 
 ## Monorepo layout
 
-- `web/` — Next.js frontend (React, TypeScript)
-- `api/` — .NET 8 backend
-  - `api/src/Threatwatch.Core` — entities, EF Core `ThreatwatchDbContext`, seed data
-  - `api/src/Threatwatch.Ingestion` — ingestion providers and background workers (CISA KEV, OSV)
-  - `api/src/Threatwatch.Api` — ASP.NET Core Web API
-  - `api/tests/Threatwatch.Tests` — xUnit tests (EF Core InMemory)
+- `web/`: Next.js 16 frontend (React, TypeScript, Tailwind, shadcn/ui; pnpm)
+- `api/`: .NET 8 backend
+  - `api/src/Threatwatch.Core`: entities, EF Core `ThreatwatchDbContext` and migrations, query and domain services (alerts, projects, notifications, scoring)
+  - `api/src/Threatwatch.Ingestion`: providers (CISA KEV, OSV, EPSS, status pages), the alert dispatcher and background workers (ingestion, severity repair, retention)
+  - `api/src/Threatwatch.Api`: ASP.NET Core Web API (controllers, auth, OpenAPI)
+  - `api/tests/Threatwatch.Tests`: xUnit tests (EF Core InMemory)
+- `docker-compose.yml`: PostgreSQL 17 and Mailpit (local mail catcher)
 
 ## Prerequisites
 
@@ -77,7 +128,7 @@ Threatwatch is a developer security intelligence dashboard: it ingests vulnerabi
 
 Accounts use ASP.NET Core Identity. Passwords are hashed with Identity's PBKDF2 hasher and are not stored. The browser keeps an HttpOnly `threatwatch.session` cookie (SameSite=Lax, 7-day sliding session). Five failed sign-ins lock the account for 15 minutes. Data-protection keys for the cookie are written to `api/src/Threatwatch.Api/data-protection-keys/` and are gitignored.
 
-## Projects
+## Projects (dependency matching)
 
 Under **Projects**, drop in your dependency files and Threatwatch lists the known vulnerabilities that affect the **exact versions you use**, with the version to upgrade to. New advisories that hit a project also trigger your alerts (even for packages you do not follow), and an alert names the project, the package version and the fix.
 
@@ -115,25 +166,101 @@ New users land on **Preferences** after registering, where a three-step setup as
 
 **Real email.** Point `Smtp__*` at any SMTP server, for example Gmail (`smtp.gmail.com`, port 587, `StartTls`, your address and a Google app password) or a self-hosted server.
 
-Apply the new migrations (`AddAlerts`, `AddAppSettings`, `AddProjects`) with `dotnet ef database update` before starting the API.
+Apply pending migrations with `dotnet ef database update` before starting the API.
 
-## API documentation
+## Pages
 
-In the Development environment the OpenAPI document is available at http://localhost:5080/openapi/v1.json, with a Swagger UI at http://localhost:5080/openapi.
+| Page | What it shows |
+|---|---|
+| Overview | Summary counts, daily activity and project findings |
+| Act now | Highest-priority vulnerabilities in your stack over the last 7 days |
+| Vulnerabilities | Searchable, filterable explorer plus a detail page per advisory |
+| Incidents | Vendor outages and security incidents for the technologies you follow (last 30 days; unresolved ones always shown) |
+| Technologies / Following | The catalog, and what you follow |
+| Projects | Your dependency files and the advisories that hit your exact versions |
+| Preferences | Alert rules and channels, email verification |
+| Discussions | Placeholder, not implemented yet |
+
+## Notifications
+
+The bell in the header is derived at read time from your follows, your alert rules and your projects, so there is nothing to clear and no backlog to build up.
+
+- **What qualifies.** A version-checked hit on one of your projects always qualifies and says why (for example "Affects my-app: lodash 4.17.20 (fixed in 4.17.21)"). Otherwise an item must belong to a technology you follow and pass your alert rules (default: High and above, or known-exploited). Follows of a whole ecosystem only count for known-exploited or Critical items.
+- **Ranking and cap.** Items are ranked by known-exploited, project match, severity, then recency, and the bell shows the top 10 with a "Top N of M" footer linking to Act now and Preferences.
+- **Read state.** Opening the bell marks everything seen. Items that were new when you opened it keep a blue dot until you close it, and the badge caps at "9+".
+
+## Severity and priority scoring
+
+- **CVSS.** CVSS v3.0 and v3.1 base scores are calculated exactly from the vector string (including the 3.1 round-up rule). Severity bands are Critical (9.0+), High (7.0+), Medium (4.0+), Low and None.
+- **Fallbacks.** If an advisory has no usable v3 vector, a plain numeric score is used, then the label from the source (for example GitHub's `database_specific.severity`). CVSS v4 vectors cannot be scored locally yet, so a v4-only advisory without a label stays **Unknown**.
+- **Priority score.** `base x (1 + EPSS) x (2 if known-exploited)`, where `base` is the CVSS score, else the midpoint of the severity band, else 7.0 for a known-exploited advisory with no rating. Advisories are sorted by this score in Act now.
+- **Repair.** Earlier versions stored the CVSS version number as the score, so nothing ever reached High. A one-time repair (`repair.severity.v1`) runs at API start before ingestion: it rescored v3 rows from their vectors, clears bogus v4 scores, recomputes priorities and resets the OSV watermark so labels are re-read on the next sync.
+
+## Data retention
+
+Ingestion only limits what each sync reads, so a `RetentionService` prunes stored data once a day. It starts in **dry-run mode**: it logs what it would remove and deletes nothing until you set `Retention__DryRun=false`.
+
+| Rule | Default | Notes |
+|---|---|---|
+| Stale advisories | 180 days since last modification | Known-exploited advisories and advisories affecting a package in any user's project are kept. Keep this above `Osv__RetentionDays` so pruned items are not re-imported. |
+| Withdrawn advisories | 30 days since last modification | Removed even if otherwise protected. |
+| Events | 90 days | Update, fix-available and severity-change events. First-seen and known-exploited events are kept. |
+| Resolved incidents | 180 days after resolution | Open incidents are never removed. |
+| Alert deliveries | 30 days | Handled by the alert dispatcher. |
+
+Deleting an advisory also removes its packages, aliases, references and events.
+
+| Variable | Default | Description |
+|---|---|---|
+| `Retention__Enabled` | `true` | Turn the worker off entirely. |
+| `Retention__DryRun` | `true` | Log only; set `false` to actually delete. |
+| `Retention__AdvisoryDays` | `180` | Stale advisory limit. |
+| `Retention__WithdrawnDays` | `30` | Withdrawn advisory limit. |
+| `Retention__EventDays` | `90` | Event limit. |
+| `Retention__ResolvedIncidentDays` | `180` | Resolved incident limit. |
+| `Retention__IntervalHours` | `24` | How often it runs. |
+| `Osv__RetentionDays` | `90` | How far back each OSV sync reads. |
+
+## API
+
+In the Development environment the OpenAPI document is at http://localhost:5080/openapi/v1.json, with a Swagger UI at http://localhost:5080/openapi. Every route requires the API key as a bearer token; signed-in routes also need the session cookie.
+
+| Area | Routes under `/api/v1` |
+|---|---|
+| Auth | `auth/register`, `auth/login`, `auth/logout`, `auth/me`, `auth/verify-email/send`, `auth/verify-email/confirm` |
+| Vulnerabilities | `vulnerabilities`, `vulnerabilities/{id}` |
+| Dashboard | `dashboard/summary`, `dashboard/daily`, `dashboard/act-now` |
+| Incidents | `incidents` |
+| Technologies and follows | `technologies`, `technologies/{slug}`, `follows` (GET, POST, `POST/DELETE follows/{slug}`) |
+| Projects | `projects`, `projects/overview`, `projects/supported-files`, `projects/{id}` (GET, DELETE), `projects/{id}/files` (PUT) |
+| Alerts | `alerts`, `alerts/preferences`, `alerts/channels` (+ `push`, `{id}`, `{id}/setup`, `{id}/test`) |
+| Notifications | `notifications`, `notifications/read` |
+| Ingestion and health | `ingestion/sync` (GET, POST), `health/providers` |
+
+## Development and tests
+
+```sh
+cd api && dotnet test          # xUnit, EF Core InMemory
+cd web && pnpm test            # vitest
+cd web && pnpm exec tsc --noEmit && pnpm lint
+```
+
+Add a migration with `dotnet ef migrations add <Name> --project src/Threatwatch.Core --startup-project src/Threatwatch.Api` (run from `api/`). Apply pending migrations before starting the API, or pages that need new tables will fail to load.
 
 ## Data sources
 
-- [OSV.dev](https://osv.dev/) — open vulnerability database. Only advisories modified in the last 90 days are stored.
-- [CISA Known Exploited Vulnerabilities (KEV) Catalog](https://www.cisa.gov/known-exploited-vulnerabilities-catalog) — vulnerabilities known to be actively exploited in the wild
-- Public [Atlassian Statuspage](https://www.atlassian.com/software/statuspage) JSON (`/api/v2/incidents.json`) for GitHub, npm, PyPI, Cloudflare, and Docker. No API key. AWS Health and NuGet are omitted because they have no equivalent free public feed.
+- [OSV.dev](https://osv.dev/): open vulnerability database. Each sync reads advisories modified in the last 90 days (configurable).
+- [CISA Known Exploited Vulnerabilities (KEV) Catalog](https://www.cisa.gov/known-exploited-vulnerabilities-catalog): vulnerabilities known to be actively exploited in the wild.
+- [EPSS](https://www.first.org/epss/): daily exploit-probability scores from FIRST.
+- Public [Atlassian Statuspage](https://www.atlassian.com/software/statuspage) JSON (`/api/v2/incidents.json`) for GitHub, npm, PyPI, Cloudflare and Docker. No API key. AWS Health and NuGet are omitted because they have no equivalent free public feed.
 
-## Current status / roadmap
+## Roadmap
 
-Threatwatch is in **Phase 1**: vulnerability ingestion (CISA KEV + OSV), deduplication/upsert logic, email-and-password accounts, followable technologies, and the dashboard UI for browsing advisories.
+Implemented: ingestion (KEV, OSV, EPSS, status pages), scoring and prioritisation, accounts, follows, project dependency matching, outbound alerts, notifications, retention.
 
-Accounts are stored in the `Users` table (`Id`, `Email`, `DisplayName`, `CreatedAt`, plus Identity columns). Follows are stored in `UserFollows`.
+Not implemented yet:
 
-Planned for future phases (not implemented yet):
-
+- CVSS v4 base-score calculation (v4-only advisories without a source label stay Unknown)
 - NVD and GitHub Advisory enrichment
-- Discussions/comments on advisories
+- Discussions and comments on advisories
+- A "High and above" severity filter in the vulnerability explorer (the current filter matches one level exactly)
