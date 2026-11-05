@@ -182,3 +182,36 @@ export type ProviderHealth = {
   lastError: string | null;
   lastDurationMs: number | null;
 };
+
+export type AlertChannelType = "Email" | "Webhook" | "Ntfy" | "BrowserPush"
+export type AlertDeliveryMode = "Instant" | "DailyDigest"
+
+export type AlertPreference = {
+  minSeverity: "Low" | "Medium" | "High" | "Critical"
+  alwaysAlertKnownExploited: boolean
+  minEpss: number | null
+  includeIncidents: boolean
+  mode: AlertDeliveryMode
+}
+
+export type AlertChannel = {
+  id: string
+  type: AlertChannelType
+  label: string
+  targetHint: string | null
+  isEnabled: boolean
+  lastDeliveredAt: string | null
+  lastError: string | null
+}
+
+export type AlertState = {
+  preference: AlertPreference
+  channels: AlertChannel[]
+  emailAvailable: boolean
+  emailVerified: boolean
+  email: string | null
+  followedCount: number
+  pushPublicKey: string | null
+}
+
+export type NtfySetup = { topicUrl: string; server: string; topic: string }
