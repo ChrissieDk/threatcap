@@ -7,6 +7,7 @@ import { Brand, SidebarNav } from "@/components/layout/sidebar"
 import { GlobalSearch } from "@/components/layout/global-search"
 import { SetupBanner } from "@/components/layout/setup-banner"
 import { NotificationBell } from "@/components/layout/notification-bell"
+import { OnboardingTour, TourButton } from "@/components/onboarding/tour"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { endSession } from "@/lib/auth"
@@ -41,6 +42,7 @@ export function AppShell({
             <div className="min-w-0 flex-1">
               <GlobalSearch />
             </div>
+            <TourButton />
             <NotificationBell />
             <AccountMenu />
           </div>
@@ -50,6 +52,7 @@ export function AppShell({
           {children}
         </main>
       </div>
+      <OnboardingTour />
     </div>
   )
 }
