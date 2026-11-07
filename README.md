@@ -15,6 +15,7 @@ No paid services are required. Everything runs on PostgreSQL, a .NET API and a N
 - [Notifications](#notifications)
 - [Severity and priority scoring](#severity-and-priority-scoring)
 - [Data retention](#data-retention)
+- [Deploying](#deploying-free-self-hosted)
 - [API](#api)
 - [Development and tests](#development-and-tests)
 - [Data sources](#data-sources)
@@ -236,6 +237,29 @@ In the Development environment the OpenAPI document is at http://localhost:5080/
 | Alerts | `alerts`, `alerts/preferences`, `alerts/channels` (+ `push`, `{id}`, `{id}/setup`, `{id}/test`) |
 | Notifications | `notifications`, `notifications/read` |
 | Ingestion and health | `ingestion/sync` (GET, POST), `health/providers` |
+
+## Deploying (free, self-hosted)
+
+The production stack is `docker-compose.prod.yml`: Postgres, the API, the web app and Caddy. Caddy is the only service that publishes ports (80 and 443); it fetches and renews a Let's Encrypt certificate automatically. It fits an always-free VM (for example Oracle Cloud Always Free ARM). Any DNS provider works, since only an A record is needed.
+
+1. **VM.** Create an Ubuntu VM with a reserved public IP, install Docker, enable automatic security updates, allow SSH only with keys (`PasswordAuthentication no`, `PermitRootLogin no`), and open only ports 22, 80 and 443 (in the cloud security list and the host firewall).
+2. **DNS.** Add an `A` record for your hostname (for example `threatwatch.example.co.za`) pointing to the VM's IP. If you also have an AAAA record, point it at the VM or remove it.
+3. **Configure.** `cp .env.production.example .env`, fill it in (`openssl rand -base64 32` for the passwords and API key), and `chmod 600 .env`.
+4. **Start.** `docker compose -f docker-compose.prod.yml up -d --build`. The API applies migrations on start (`Database__MigrateOnStartup`).
+5. **First account.** Sign-up is closed by default. Set `REGISTRATION_OPEN=true` (optionally with `INVITE_CODE=...`), restart, register, then close it again if the site is private.
+6. **Retention.** Check the log for the dry-run line, then set `Retention__DryRun=false` in the compose file's API environment.
+7. **Backups.** Schedule `deploy/backup.sh` with cron. It writes an encrypted `pg_dump` plus the Data Protection keys (without the keys, sessions and encrypted alert channels cannot be recovered) and copies them off the server with rclone if configured.
+
+**Built-in hardening.** Containers run read-only with all capabilities dropped and `no-new-privileges`; the API and database are reachable only on the internal Docker network; the web app sets HSTS, a strict CSP, `frame-ancestors 'none'`, `nosniff`, a referrer policy and a permissions policy; session cookies are HttpOnly, SameSite=Lax and Secure; login and sign-up are rate limited per client address (Caddy sets the forwarded address and drops client-supplied ones); invite codes are compared in constant time. CI runs the tests, type-check, lint and a dependency audit, and Dependabot opens weekly update PRs.
+
+Cloudflare's free plan (DDoS protection, WAF, tunnel) would add a layer in front of this, but it does not accept every domain, including `.co.za`. Without it, consider `fail2ban` on the host for SSH.
+
+| Variable | Description |
+|---|---|
+| `Auth__RegistrationOpen` | Allow new accounts (default `true`; the production compose file defaults to `false`). |
+| `Auth__InviteCode` | If set, sign-up requires this code. |
+| `Database__MigrateOnStartup` | Apply EF migrations when the API starts (default `false`). |
+| `Cors__Origin` | Public web origin (default `http://localhost:3000`). |
 
 ## Development and tests
 

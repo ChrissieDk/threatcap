@@ -26,6 +26,7 @@ public class AuthController(
     SmtpMailer mailer,
     IMemoryCache cache,
     IOptions<AlertOptions> alertOptions,
+    IOptions<RegistrationOptions> registration,
     ILogger<AuthController> logger) : ControllerBase
 {
     private static readonly TimeSpan VerificationResendCooldown = TimeSpan.FromSeconds(60);
@@ -36,6 +37,14 @@ public class AuthController(
         new UserAccount { DisplayName = "unused", UserName = "unused@example.com" },
         Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
 
+    [HttpGet("registration")]
+    [AllowAnonymous]
+    public IActionResult RegistrationStatus() => Ok(new
+    {
+        open = registration.Value.RegistrationOpen,
+        inviteRequired = registration.Value.RegistrationOpen && registration.Value.HasInviteCode,
+    });
+
     [HttpPost("register")]
     [AllowAnonymous]
     public async Task<IActionResult> Register([FromBody] RegisterRequest? request)
@@ -43,6 +52,18 @@ public class AuthController(
         if (!HasBrowserHeader())
         {
             return MissingHeader();
+        }
+
+        if (!registration.Value.RegistrationOpen)
+        {
+            return ApiError.ToResult(
+                new ApiError("registration_closed", "Sign-up is currently closed."), StatusCodes.Status403Forbidden);
+        }
+
+        if (registration.Value.HasInviteCode && !registration.Value.InviteMatches(request?.InviteCode))
+        {
+            return ApiError.ToResult(
+                new ApiError("invalid_invite", "That invite code is not valid."), StatusCodes.Status403Forbidden);
         }
 
         if (request is null)
@@ -298,7 +319,7 @@ public class AuthController(
         EmailVerificationAvailable = mailer.IsConfigured,
     };
 
-    public sealed record RegisterRequest(string? Email, string? Password, string? DisplayName);
+    public sealed record RegisterRequest(string? Email, string? Password, string? DisplayName, string? InviteCode = null);
 
     public sealed record LoginRequest(string? Email, string? Password);
 

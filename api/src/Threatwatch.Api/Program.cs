@@ -79,6 +79,7 @@ builder.Services.ConfigureApplicationCookie(options =>
         WriteAuthStatus(context.Response, StatusCodes.Status403Forbidden, "forbidden", "Access denied.");
 });
 
+builder.Services.Configure<RegistrationOptions>(builder.Configuration.GetSection("Auth"));
 builder.Services.AddAuthorization();
 builder.Services.AddMemoryCache();
 
@@ -143,11 +144,11 @@ builder.Services.AddScoped<Threatwatch.Core.Projects.ProjectService>();
 
 // Ingestion
 builder.Services.AddScoped<VulnerabilityUpserter>();
-const string FrontendOrigin = "http://localhost:3000";
+var frontendOrigin = builder.Configuration["Cors:Origin"] ?? "http://localhost:3000";
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
-        policy.WithOrigins(FrontendOrigin)
+        policy.WithOrigins(frontendOrigin)
             .AllowAnyHeader()
             .AllowAnyMethod());
 });
@@ -173,6 +174,12 @@ builder.Services.AddHostedService<OsvBackfillService>();
 builder.Services.AddHostedService<DbSeederHostedService>();
 
 var app = builder.Build();
+
+if (builder.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+{
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<ThreatwatchDbContext>().Database.MigrateAsync();
+}
 
 app.UseRouting();
 app.UseCors();
@@ -216,8 +223,10 @@ static Task WriteAuthStatus(HttpResponse response, int status, string code, stri
 
 static string ClientPartitionKey(HttpContext context)
 {
+    // Only the web server (loopback or a private/container network address) can reach this API,
+    // so its forwarded client address is trusted; anything else is keyed on the socket address.
     var remote = context.Connection.RemoteIpAddress;
-    if (remote is not null && IPAddress.IsLoopback(remote)
+    if (remote is not null && IsInternal(remote)
         && context.Request.Headers.TryGetValue("X-Forwarded-For", out var forwarded))
     {
         var client = forwarded.ToString().Split(',')[0].Trim();
@@ -228,6 +237,15 @@ static string ClientPartitionKey(HttpContext context)
     }
 
     return remote?.ToString() ?? "unknown";
+}
+
+static bool IsInternal(IPAddress address)
+{
+    if (address.IsIPv4MappedToIPv6) address = address.MapToIPv4();
+    if (IPAddress.IsLoopback(address)) return true;
+    if (address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork) return false;
+    var b = address.GetAddressBytes();
+    return b[0] == 10 || (b[0] == 172 && b[1] is >= 16 and <= 31) || (b[0] == 192 && b[1] == 168);
 }
 
 public partial class Program;

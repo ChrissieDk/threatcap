@@ -41,3 +41,23 @@ public class AccountRulesTests
         Assert.Equal(80, name.Length);
     }
 }
+
+public class RegistrationOptionsTests
+{
+    [Fact]
+    public void NoInviteCodeAcceptsAnything()
+    {
+        var o = new Threatwatch.Core.Identity.RegistrationOptions();
+        Assert.False(o.HasInviteCode);
+        Assert.True(o.InviteMatches(null));
+    }
+
+    [Fact]
+    public void InviteCodeMustMatchIgnoringSurroundingSpace()
+    {
+        var o = new Threatwatch.Core.Identity.RegistrationOptions { InviteCode = "s3cret" };
+        Assert.True(o.InviteMatches(" s3cret "));
+        Assert.False(o.InviteMatches("wrong"));
+        Assert.False(o.InviteMatches(null));
+    }
+}
