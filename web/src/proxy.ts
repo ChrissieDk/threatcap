@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server"
 import { hasSessionCookie } from "@/lib/auth"
 
 const PUBLIC_PATHS = new Set(["/login", "/register"])
+// The landing page: signed out it is public, signed in it renders the dashboard.
+const LANDING_PATH = "/"
 // Reachable signed in or out: the link in a verification email can be opened from any session.
 const ALWAYS_OPEN_PATHS = new Set(["/verify-email"])
 
@@ -14,7 +16,7 @@ export function proxy(request: NextRequest) {
 
   const isPublic = PUBLIC_PATHS.has(pathname)
 
-  if (!signedIn && !isPublic) {
+  if (!signedIn && !isPublic && pathname !== LANDING_PATH) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"
     if (pathname !== "/") {

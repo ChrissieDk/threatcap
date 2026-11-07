@@ -11,8 +11,17 @@ import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { endSession } from "@/lib/auth"
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  signedIn,
+}: {
+  children: React.ReactNode
+  signedIn: boolean
+}) {
   const pathname = usePathname()
+  if (!signedIn && pathname === "/") {
+    return <>{children}</>
+  }
   if (pathname === "/login" || pathname === "/register" || pathname === "/verify-email") {
     return <>{children}</>
   }
