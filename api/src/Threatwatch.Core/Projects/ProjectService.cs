@@ -22,7 +22,9 @@ public record ProjectFindingDto(
     VersionKind VersionKind,
     bool IsDirect,
     bool IsDev,
-    string? FixedIn);
+    string? FixedIn,
+    TriageStatus? Triage = null,
+    DateTimeOffset? SnoozedUntil = null);
 
 public record ProjectDependencyDto(
     Ecosystem Ecosystem, string Name, string? Version, VersionKind VersionKind, bool IsDirect, bool IsDev);
@@ -84,7 +86,10 @@ public class ProjectService(ThreatwatchDbContext db)
             .OrderByDescending(p => p.UpdatedAt)
             .ToListAsync(ct);
         var deps = await LoadMergedAsync(db, [userId], ct);
-        var findings = await ComputeFindingsAsync(db, deps.Values.SelectMany(d => d).ToList(), ct);
+        var triaged = await TriageService.ActiveAsync(db, [userId], ct);
+        var findings = (await ComputeFindingsAsync(db, deps.Values.SelectMany(d => d).ToList(), ct))
+            .Where(f => !triaged.ContainsKey((f.ProjectId, f.Finding.VulnerabilityId)))
+            .ToList();
         var files = await SourceFilesAsync(projects.Select(p => p.Id).ToList(), ct);
 
         return projects.Select(p =>
@@ -103,7 +108,9 @@ public class ProjectService(ThreatwatchDbContext db)
         var deps = (await LoadMergedAsync(db, [userId], ct)).GetValueOrDefault(userId) ?? [];
         var names = deps.GroupBy(d => d.ProjectId).ToDictionary(g => g.Key, g => g.First().ProjectName);
         // One entry per vulnerability per project, however many packages or versions it hits.
+        var triaged = await TriageService.ActiveAsync(db, [userId], ct);
         var findings = (await ComputeFindingsAsync(db, deps, ct))
+            .Where(f => !triaged.ContainsKey((f.ProjectId, f.Finding.VulnerabilityId)))
             .GroupBy(f => (f.ProjectId, f.Finding.VulnerabilityId))
             .Select(g => g.OrderByDescending(x => x.Finding.IsDirect).First())
             .ToList();
@@ -131,7 +138,11 @@ public class ProjectService(ThreatwatchDbContext db)
         if (project is null) return null;
 
         var deps = (await LoadMergedAsync(db, [userId], ct)).GetValueOrDefault(userId)?.Where(d => d.ProjectId == projectId).ToList() ?? [];
-        var findings = (await ComputeFindingsAsync(db, deps, ct)).Select(f => f.Finding)
+        var triaged = await TriageService.ActiveAsync(db, [userId], ct);
+        var findings = (await ComputeFindingsAsync(db, deps, ct))
+            .Select(f => triaged.TryGetValue((projectId, f.Finding.VulnerabilityId), out var t)
+                ? f.Finding with { Triage = t.Status, SnoozedUntil = t.SnoozedUntil }
+                : f.Finding)
             .OrderByDescending(f => f.IsKnownExploited)
             .ThenByDescending(f => f.PriorityScore ?? 0)
             .ThenByDescending(f => f.Severity)
@@ -143,7 +154,8 @@ public class ProjectService(ThreatwatchDbContext db)
             .Take(1000)
             .Select(d => new ProjectDependencyDto(d.Ecosystem, d.DisplayName, d.Version, d.VersionKind, d.IsDirect, d.IsDev))
             .ToList();
-        return new ProjectDetailDto(Summarize(project, deps, findings, files), findings, listed);
+        // Open findings drive the counts; triaged ones are still listed so they can be reopened.
+        return new ProjectDetailDto(Summarize(project, deps, findings.Where(f => f.Triage is null).ToList(), files), findings, listed);
     }
 
     public async Task<(ProjectUploadResultDto? Result, string? Error)> CreateAsync(

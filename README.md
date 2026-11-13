@@ -30,6 +30,7 @@ No paid services are required. Everything runs on PostgreSQL, a .NET API and a N
 - **Technology catalog and following.** Follow specific technologies or whole ecosystems; every feed (Act now, incidents, notifications, alerts) is scoped to what you follow.
 - **Vendor incidents.** Outages and security incidents from public status pages (GitHub, npm, PyPI, Cloudflare, Docker), filtered to what you follow.
 - **Projects.** Drop in `package.json`, lockfiles, `.csproj`, `go.mod`, SBOMs and more (or paste them) and see which advisories hit the exact versions you run, with the version to upgrade to. Backend and frontend projects are supported.
+- **Triage.** Mark a finding in a project as acknowledged, snoozed (7, 30 or 90 days) or ignored. Triaged findings drop out of the project counts, Act now, the notification bell and outbound alerts, stay listed under a "Triaged" section, and can be reopened. A snooze reopens itself when it expires. Findings export to CSV.
 - **Outbound alerts.** Web Push, ntfy (phone), email and webhooks, with a guided one-click setup, idempotent delivery, batching or daily digests, and SSRF protection.
 - **In-app notification bell.** A short, ranked list of what needs attention, shown with the reason it matters, that never nags twice about the same thing.
 - **Accounts.** Email-and-password accounts with lockout, email verification and HttpOnly sessions.
@@ -180,7 +181,6 @@ Apply pending migrations with `dotnet ef database update` before starting the AP
 | Technologies / Following | The catalog, and what you follow |
 | Projects | Your dependency files and the advisories that hit your exact versions |
 | Preferences | Alert rules and channels, email verification |
-| Discussions | Placeholder, not implemented yet |
 
 ## Notifications
 
@@ -202,8 +202,8 @@ The bell in the header is derived at read time from your follows, your alert rul
 | Variable | Default | Description |
 |---|---|---|
 | `Nvd__Enabled` | `true` | Turn NVD enrichment off. |
-| `Nvd__IntervalMinutes` | `60` | Minutes between passes. |
-| `Nvd__MaxPerRun` | `20` | CVEs looked up per pass (about 2 minutes without a key). |
+| `Nvd__IntervalMinutes` | `30` | Minutes between passes. |
+| `Nvd__MaxPerRun` | `10` | CVEs looked up per pass (about 70 seconds without a key; providers run one after another, so keep passes short). |
 | `Nvd__LookbackDays` | `30` | Only advisories modified within this window are considered. |
 | `Nvd__ApiKey` | none | Optional free [NVD API key](https://nvd.nist.gov/developers/request-an-api-key); raises the limit from 5 to 50 requests per 30 seconds. |
 
@@ -243,7 +243,7 @@ In the Development environment the OpenAPI document is at http://localhost:5080/
 | Dashboard | `dashboard/summary`, `dashboard/daily`, `dashboard/act-now` |
 | Incidents | `incidents` |
 | Technologies and follows | `technologies`, `technologies/{slug}`, `follows` (GET, POST, `POST/DELETE follows/{slug}`) |
-| Projects | `projects`, `projects/overview`, `projects/supported-files`, `projects/{id}` (GET, DELETE), `projects/{id}/files` (PUT) |
+| Projects | `projects`, `projects/overview`, `projects/supported-files`, `projects/{id}` (GET, DELETE), `projects/{id}/files` (PUT), `projects/{id}/findings/{vulnerabilityId}/triage` (PUT, DELETE) |
 | Alerts | `alerts`, `alerts/preferences`, `alerts/channels` (+ `push`, `{id}`, `{id}/setup`, `{id}/test`) |
 | Notifications | `notifications`, `notifications/read` |
 | Ingestion and health | `ingestion/sync` (GET, POST), `health/providers` |
@@ -298,4 +298,3 @@ Implemented: ingestion (KEV, OSV, EPSS, NVD enrichment, status pages), CVSS v3 a
 Not implemented yet:
 
 - GitHub Advisory enrichment
-- Discussions and comments on advisories

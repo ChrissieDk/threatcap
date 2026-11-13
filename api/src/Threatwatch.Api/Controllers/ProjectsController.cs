@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Threatwatch.Api.Infrastructure;
+using Threatwatch.Core.Enums;
 using Threatwatch.Core.Projects;
 
 namespace Threatwatch.Api.Controllers;
@@ -9,10 +10,12 @@ public record CreateProjectRequest(string? Name, List<ProjectFileInput>? Files);
 
 public record UpdateProjectFilesRequest(List<ProjectFileInput>? Files);
 
+public record SetTriageRequest(string? Status, int? SnoozeDays);
+
 [ApiController]
 [Route("api/v1/projects")]
 [RequestSizeLimit(12_000_000)]
-public class ProjectsController(ProjectService projects) : ControllerBase
+public class ProjectsController(ProjectService projects, TriageService triage) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken ct) =>
@@ -60,4 +63,29 @@ public class ProjectsController(ProjectService projects) : ControllerBase
     [EnableRateLimiting("writes")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct) =>
         await projects.DeleteAsync(CurrentUser.Id(User), id, ct) ? NoContent() : NotFound();
+
+    [HttpPut("{id:guid}/findings/{vulnerabilityId:guid}/triage")]
+    [RequireBrowserHeader]
+    [EnableRateLimiting("writes")]
+    public async Task<IActionResult> SetTriage(
+        Guid id, Guid vulnerabilityId, [FromBody] SetTriageRequest request, CancellationToken ct)
+    {
+        if (!Enum.TryParse<TriageStatus>(request.Status, ignoreCase: true, out var status) || !Enum.IsDefined(status))
+        {
+            return ApiError.ToResult(
+                ApiError.InvalidArgument("'status' must be Acknowledged, Snoozed or Ignored."), StatusCodes.Status400BadRequest);
+        }
+
+        var (error, found) = await triage.SetAsync(CurrentUser.Id(User), id, vulnerabilityId, status, request.SnoozeDays, ct);
+        if (!found) return NotFound();
+        return error is not null
+            ? ApiError.ToResult(ApiError.InvalidArgument(error), StatusCodes.Status400BadRequest)
+            : NoContent();
+    }
+
+    [HttpDelete("{id:guid}/findings/{vulnerabilityId:guid}/triage")]
+    [RequireBrowserHeader]
+    [EnableRateLimiting("writes")]
+    public async Task<IActionResult> ClearTriage(Guid id, Guid vulnerabilityId, CancellationToken ct) =>
+        await triage.ClearAsync(CurrentUser.Id(User), id, vulnerabilityId, ct) ? NoContent() : NotFound();
 }

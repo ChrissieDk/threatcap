@@ -24,6 +24,7 @@ public class ThreatwatchDbContext(DbContextOptions<ThreatwatchDbContext> options
     public DbSet<AppSetting> AppSettings => Set<AppSetting>();
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<ProjectDependency> ProjectDependencies => Set<ProjectDependency>();
+    public DbSet<FindingTriage> FindingTriages => Set<FindingTriage>();
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -220,6 +221,14 @@ public class ThreatwatchDbContext(DbContextOptions<ThreatwatchDbContext> options
             b.Property(x => x.Name).HasMaxLength(300);
             b.Property(x => x.DisplayName).HasMaxLength(300);
             b.Property(x => x.Version).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<FindingTriage>(b =>
+        {
+            b.HasIndex(x => new { x.ProjectId, x.VulnerabilityId }).IsUnique();
+            b.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Vulnerability).WithMany().HasForeignKey(x => x.VulnerabilityId).OnDelete(DeleteBehavior.Cascade);
+            b.Property(x => x.Status).HasConversion<string>();
         });
     }
 }

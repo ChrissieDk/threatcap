@@ -361,6 +361,38 @@ namespace Threatwatch.Core.Migrations
                     b.ToTable("AppSettings");
                 });
 
+            modelBuilder.Entity("Threatwatch.Core.Entities.FindingTriage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("SnoozedUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("VulnerabilityId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VulnerabilityId");
+
+                    b.HasIndex("ProjectId", "VulnerabilityId")
+                        .IsUnique();
+
+                    b.ToTable("FindingTriages");
+                });
+
             modelBuilder.Entity("Threatwatch.Core.Entities.IngestionState", b =>
                 {
                     b.Property<Guid>("Id")
@@ -959,6 +991,25 @@ namespace Threatwatch.Core.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Threatwatch.Core.Entities.FindingTriage", b =>
+                {
+                    b.HasOne("Threatwatch.Core.Entities.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Threatwatch.Core.Entities.Vulnerability", "Vulnerability")
+                        .WithMany()
+                        .HasForeignKey("VulnerabilityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+
+                    b.Navigation("Vulnerability");
                 });
 
             modelBuilder.Entity("Threatwatch.Core.Entities.Project", b =>

@@ -44,7 +44,7 @@ function DropdownMenuItem({
     <DropdownMenuPrimitive.Item
       data-slot="dropdown-menu-item"
       className={cn(
-        "focus:bg-surface-2 focus:text-foreground outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        "focus:bg-surface-2 focus:text-foreground cursor-default rounded-sm px-2 py-1.5 select-none outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         className
       )}
       {...props}

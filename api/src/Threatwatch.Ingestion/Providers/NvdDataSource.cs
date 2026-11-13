@@ -16,10 +16,10 @@ public class NvdOptions
     public bool Enabled { get; set; } = true;
 
     /// <summary>Minutes between enrichment passes.</summary>
-    public int IntervalMinutes { get; set; } = 60;
+    public int IntervalMinutes { get; set; } = 30;
 
     /// <summary>Most CVEs looked up per pass. Keeps a pass within NVD's public rate limit.</summary>
-    public int MaxPerRun { get; set; } = 20;
+    public int MaxPerRun { get; set; } = 10;
 
     /// <summary>Only advisories modified within this many days are considered.</summary>
     public int LookbackDays { get; set; } = 30;
