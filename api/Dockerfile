@@ -9,7 +9,7 @@ RUN dotnet restore src/Threatwatch.Api/Threatwatch.Api.csproj
 COPY src/ src/
 RUN dotnet publish src/Threatwatch.Api/Threatwatch.Api.csproj -c Release -o /app --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+FROM mcr.microsoft.com/dotnet/aspnet:11.0
 WORKDIR /app
 COPY --from=build /app .
 # Data Protection keys live in /app/data-protection-keys (mounted as a volume); the image's non-root user owns it.
