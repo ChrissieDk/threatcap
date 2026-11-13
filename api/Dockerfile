@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0 AS build
 WORKDIR /src
 COPY Threatwatch.sln Directory.Build.props ./
 COPY src/Threatwatch.Core/*.csproj src/Threatwatch.Core/
