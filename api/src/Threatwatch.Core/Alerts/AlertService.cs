@@ -308,7 +308,7 @@ public class AlertService(
     private static string GenerateNtfyTopicUrl(string server)
     {
         // 128 bits of randomness: the topic name is the only secret protecting the feed.
-        var topic = "threatwatch-" + Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
+        var topic = "peregrinet-" + Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
         return server.TrimEnd('/') + "/" + topic;
     }
 

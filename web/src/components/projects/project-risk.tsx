@@ -10,7 +10,7 @@ export function ProjectRisk({ overview, compact = false }: { overview: ProjectOv
       <section aria-label="Your projects" className="border-line bg-surface rounded-md border p-4 text-xs">
         <h2 className="text-sm font-medium">See what affects your exact versions</h2>
         <p className="text-muted-foreground mt-1">
-          Drop in a package.json, lockfile, .csproj or SBOM and Threatwatch lists the known vulnerabilities in the
+          Drop in a package.json, lockfile, .csproj or SBOM and Peregrinet lists the known vulnerabilities in the
           versions you actually run.{" "}
           <Link href="/projects" className="text-primary font-medium underline-offset-2 hover:underline">
             Add a project

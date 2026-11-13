@@ -278,8 +278,8 @@ public class AuthController(
             var link = $"{alertOptions.Value.WebBaseUrl.TrimEnd('/')}/verify-email?uid={user.Id}&token={token}";
             await mailer.SendAsync(
                 user.Email!,
-                "Verify your Threatwatch email",
-                $"Hi {user.DisplayName},\n\nConfirm your email address to receive Threatwatch alerts by email:\n\n{link}\n\nThe link expires in 24 hours. If you did not create this account you can ignore this message.",
+                "Verify your Peregrinet email",
+                $"Hi {user.DisplayName},\n\nConfirm your email address to receive Peregrinet alerts by email:\n\n{link}\n\nThe link expires in 24 hours. If you did not create this account you can ignore this message.",
                 ct);
             return null;
         }

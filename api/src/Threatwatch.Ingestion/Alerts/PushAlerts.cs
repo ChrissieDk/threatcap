@@ -76,7 +76,7 @@ public sealed class VapidKeyStore(
         // Push services require a contact URL; fall back to the public web URL when it is https.
         return options.Value.WebBaseUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
             ? options.Value.WebBaseUrl
-            : "mailto:admin@threatwatch.invalid";
+            : "mailto:admin@peregrinet.invalid";
     }
 }
 

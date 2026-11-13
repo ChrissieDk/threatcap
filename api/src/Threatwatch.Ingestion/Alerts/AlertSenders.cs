@@ -180,7 +180,7 @@ public class SmtpOptions
     public string? Username { get; set; }
     public string? Password { get; set; }
     public string? From { get; set; }
-    public string FromName { get; set; } = "Threatwatch";
+    public string FromName { get; set; } = "Peregrinet";
 
     /// <summary>StartTls (default, port 587), Ssl (port 465) or None (local dev, e.g. Mailpit).</summary>
     public string Security { get; set; } = "StartTls";

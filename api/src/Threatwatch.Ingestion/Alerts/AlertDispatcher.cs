@@ -83,7 +83,7 @@ public class AlertDispatcher(
         }
 
         var message = new AlertMessage(
-            "Threatwatch test alert",
+            "Peregrinet test alert",
             [new AlertMessageItem("Your alert channel is working.", "You will get alerts here when followed technologies match your rules.", null)],
             0,
             options.Value.WebBaseUrl.TrimEnd('/') + "/preferences");
@@ -184,8 +184,8 @@ public class AlertDispatcher(
             .Select(d => new AlertMessageItem(d.Title, d.Summary, d.Url))
             .ToList();
         var subject = batch.Count == 1
-            ? $"Threatwatch alert: {Shorten(batch[0].Title)}"
-            : $"Threatwatch: {batch.Count} new alerts";
+            ? $"Peregrinet alert: {Shorten(batch[0].Title)}"
+            : $"Peregrinet: {batch.Count} new alerts";
         return new AlertMessage(subject, shown, batch.Count - shown.Count, opts.WebBaseUrl.TrimEnd('/') + "/preferences");
     }
 

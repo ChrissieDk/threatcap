@@ -20,7 +20,7 @@ export function ComingSoon({ feature }: { feature: string }) {
   return (
     <EmptyState
       title={`${feature} is not available yet`}
-      description="This part of Threatwatch is coming in a later phase. Check back after the next release."
+      description="This part of Peregrinet is coming in a later phase. Check back after the next release."
     />
   )
 }
