@@ -1,5 +1,25 @@
+{
+	# Cut off slow or stalled connections (slowloris-style) instead of holding them open forever.
+	servers {
+		timeouts {
+			read_header 10s
+			read_body 30s
+			write 60s
+			idle 2m
+		}
+	}
+}
+
+# www -> apex. Needs a DNS record for www as well; without one Caddy logs a failed certificate
+# attempt for it and keeps serving the main site.
+www.{$DOMAIN} {
+	header -Server
+	redir https://{$DOMAIN}{uri} permanent
+}
+
 {$DOMAIN} {
 	encode zstd gzip
+	header -Server
 
 	# Never trust client-supplied address headers; Caddy sets X-Forwarded-For from the socket.
 	reverse_proxy web:3000 {

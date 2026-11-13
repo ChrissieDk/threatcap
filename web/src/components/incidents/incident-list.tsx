@@ -1,4 +1,5 @@
 import { ExternalLink } from "lucide-react"
+import { safeExternalUrl } from "@/lib/safe-url"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { RelativeTime } from "@/components/relative-time"
@@ -95,9 +96,9 @@ function IncidentRow({ item }: { item: SecurityIncidentItem }) {
         <span className="text-muted-foreground text-[11px]">
           {TYPE_LABEL[item.type]}
         </span>
-        {item.url ? (
+        {safeExternalUrl(item.url) ? (
           <a
-            href={item.url}
+            href={safeExternalUrl(item.url) ?? undefined}
             target="_blank"
             rel="noreferrer"
             className="flex min-w-0 flex-1 items-center gap-1.5 hover:text-primary focus-visible:ring-primary/50 rounded-sm focus-visible:ring-2 focus-visible:outline-none"

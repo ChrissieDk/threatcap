@@ -61,7 +61,7 @@ async function proxyRequest(
     signal: AbortSignal.timeout(20_000),
   })
 
-  const responseHeaders = new Headers()
+  const responseHeaders = new Headers({ "Cache-Control": "no-store" })
   const responseType = upstream.headers.get("content-type")
   if (responseType) responseHeaders.set("content-type", responseType)
   for (const setCookie of upstream.headers.getSetCookie()) {

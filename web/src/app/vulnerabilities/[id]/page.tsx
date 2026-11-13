@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation"
+import { safeExternalUrl } from "@/lib/safe-url"
 import Link from "next/link"
 import { ExternalLink, Flame } from "lucide-react"
 import { ApiError, apiGet } from "@/lib/api/client"
@@ -205,9 +206,9 @@ export default async function VulnerabilityDetailPage({
                     <TableRow key={`${p.ecosystem}-${p.packageName}-${i}`}>
                       <TableCell className="text-muted-foreground">{p.ecosystem}</TableCell>
                       <TableCell className="font-mono text-[11px]">
-                        {p.packageUrl ? (
+                        {safeExternalUrl(p.packageUrl) ? (
                           <a
-                            href={p.packageUrl}
+                            href={safeExternalUrl(p.packageUrl) ?? undefined}
                             target="_blank"
                             rel="noreferrer"
                             className="hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-sm"
@@ -259,7 +260,7 @@ export default async function VulnerabilityDetailPage({
               <li key={`${r.url}-${i}`} className="flex items-center gap-2.5 px-3 py-2">
                 <Badge variant="secondary">{r.sourceType}</Badge>
                 <a
-                  href={r.url}
+                  href={safeExternalUrl(r.url) ?? undefined}
                   target="_blank"
                   rel="noreferrer"
                   className="truncate text-xs hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-sm"

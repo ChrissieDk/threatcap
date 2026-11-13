@@ -21,6 +21,8 @@ builder.Configuration.AddJsonFile(
     optional: true,
     reloadOnChange: true);
 
+builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
+
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
 
@@ -185,6 +187,19 @@ if (builder.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
     await scope.ServiceProvider.GetRequiredService<ThreatwatchDbContext>().Database.MigrateAsync();
 }
 
+if (!app.Environment.IsDevelopment())
+{
+    // Never return stack traces or exception text; the details stay in the server log.
+    app.UseExceptionHandler(errorApp => errorApp.Run(context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        return context.Response.WriteAsJsonAsync(new
+        {
+            error = new { code = "server_error", message = "Something went wrong." },
+        });
+    }));
+}
+
 app.UseRouting();
 app.UseCors();
 app.UseRateLimiter();
@@ -236,11 +251,23 @@ static string ClientPartitionKey(HttpContext context)
         var client = forwarded.ToString().Split(',')[0].Trim();
         if (client.Length > 0)
         {
-            return client;
+            return NormalizeClient(client);
         }
     }
 
-    return remote?.ToString() ?? "unknown";
+    return remote is null ? "unknown" : NormalizeClient(remote.ToString());
+}
+
+// Per-client limits must not be dodged by rotating through the addresses of one IPv6 network:
+// a single subscriber normally holds a whole /64, so key IPv6 clients on that prefix.
+static string NormalizeClient(string client)
+{
+    if (!IPAddress.TryParse(client, out var ip)) return client.Length > 64 ? client[..64] : client;
+    if (ip.IsIPv4MappedToIPv6) return ip.MapToIPv4().ToString();
+    if (ip.AddressFamily != System.Net.Sockets.AddressFamily.InterNetworkV6) return ip.ToString();
+    var bytes = ip.GetAddressBytes();
+    Array.Clear(bytes, 8, 8);
+    return new IPAddress(bytes) + "/64";
 }
 
 static bool IsInternal(IPAddress address)

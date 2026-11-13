@@ -15,7 +15,7 @@ No paid services are required. Everything runs on PostgreSQL, a .NET API and a N
 - [Notifications](#notifications)
 - [Severity and priority scoring](#severity-and-priority-scoring)
 - [Data retention](#data-retention)
-- [Deploying](#deploying-free-self-hosted)
+- [Deploying](#deploying-free-self-hosted) and [Security](#security)
 - [API](#api)
 - [Development and tests](#development-and-tests)
 - [Data sources](#data-sources)
@@ -253,17 +253,42 @@ In the Development environment the OpenAPI document is at http://localhost:5080/
 
 The production stack is `docker-compose.prod.yml`: Postgres, the API, the web app and Caddy. Caddy is the only service that publishes ports (80 and 443); it fetches and renews a Let's Encrypt certificate automatically. It fits an always-free VM (for example Oracle Cloud Always Free ARM). Any DNS provider works, since only an A record is needed.
 
-1. **VM.** Create an Ubuntu VM with a reserved public IP, install Docker, enable automatic security updates, allow SSH only with keys (`PasswordAuthentication no`, `PermitRootLogin no`), and open only ports 22, 80 and 443 (in the cloud security list and the host firewall).
-2. **DNS.** Add an `A` record for your hostname (for example `threatwatch.example.co.za`) pointing to the VM's IP. If you also have an AAAA record, point it at the VM or remove it.
-3. **Configure.** `cp .env.production.example .env`, fill it in (`openssl rand -base64 32` for the passwords and API key), and `chmod 600 .env`.
-4. **Start.** `docker compose -f docker-compose.prod.yml up -d --build`. The API applies migrations on start (`Database__MigrateOnStartup`).
-5. **First account.** Sign-up is closed by default. Set `REGISTRATION_OPEN=true` (optionally with `INVITE_CODE=...`), restart, register, then close it again if the site is private.
-6. **Retention.** Check the log for the dry-run line, then set `Retention__DryRun=false` in the compose file's API environment.
-7. **Backups.** Schedule `deploy/backup.sh` with cron. It writes an encrypted `pg_dump` plus the Data Protection keys (without the keys, sessions and encrypted alert channels cannot be recovered) and copies them off the server with rclone if configured.
+### Checklist
 
-**Built-in hardening.** Containers run read-only with all capabilities dropped and `no-new-privileges`; the API and database are reachable only on the internal Docker network; the web app sets HSTS, a strict CSP, `frame-ancestors 'none'`, `nosniff`, a referrer policy and a permissions policy; session cookies are HttpOnly, SameSite=Lax and Secure; login and sign-up are rate limited per client address (Caddy sets the forwarded address and drops client-supplied ones); invite codes are compared in constant time. CI runs the tests, type-check, lint and a dependency audit, and Dependabot opens weekly update PRs.
+1. **VM.** Create an Ubuntu VM with a reserved public IP, install Docker, enable automatic security updates, allow SSH only with keys (`PasswordAuthentication no`, `PermitRootLogin no`), and open only ports 22, 80 and 443 (in the cloud security list and the host firewall). Consider `fail2ban` for SSH.
+2. **DNS.** Add an `A` record for your domain (for example `peregrinet.com`) pointing to the VM's IP, and one for `www` if you want the redirect to the main address. Remove any `AAAA` record or point it at the VM. If the DNS is on Cloudflare, set the records to **DNS only** (grey cloud); see the note below on proxying. Check with `dig +short peregrinet.com` before the first start, since certificates cannot be issued until the name resolves to the server.
+3. **Code.** `git clone` the repository onto the VM.
+4. **Configure.** `cp .env.production.example .env`, set `DOMAIN` and `CONTACT_EMAIL`, fill in the secrets (`openssl rand -base64 32` for `POSTGRES_PASSWORD` and `API_KEY`), and `chmod 600 .env`.
+5. **Start.** `docker compose -f docker-compose.prod.yml up -d --build`, then `docker compose -f docker-compose.prod.yml logs -f` until Caddy has a certificate and the API finishes its first sync. The API applies migrations on start (`Database__MigrateOnStartup`).
+6. **First account.** Sign-up is closed by default. Set `REGISTRATION_OPEN=true` (optionally with `INVITE_CODE=...`) in `.env`, run the `up -d` command again, register, then set it back to `false` (or keep the invite code) and run `up -d` once more.
+7. **Retention.** Find the "Retention dry run" line in the API log. When the numbers look right, set `RETENTION_DRY_RUN=false` in `.env` and run `up -d`.
+8. **Backups.** Schedule `deploy/backup.sh` with cron. It writes an encrypted `pg_dump` plus the Data Protection keys (without the keys, sessions and encrypted alert channels cannot be recovered) and copies them off the server with rclone if configured. Test a restore once.
+9. **Optional.** `SMTP_*` for email verification and alerts, and a free `NVD_API_KEY` for faster severity enrichment.
 
-Cloudflare's free plan (DDoS protection, WAF, tunnel) would add a layer in front of this, but it does not accept every domain, including `.co.za`. Without it, consider `fail2ban` on the host for SSH.
+To update later: `git pull`, then `docker compose -f docker-compose.prod.yml up -d --build`.
+
+**Cloudflare in front.** Cloudflare's free plan adds DDoS protection and a WAF, but if you turn the proxy on (orange cloud) every request reaches Caddy from a Cloudflare address, so the per-client rate limits would see Cloudflare instead of the visitor. Before enabling it, change the Caddyfile to trust Cloudflare's published address ranges (`trusted_proxies`) and forward `CF-Connecting-IP` as the client address. Until then, leave the records on DNS only.
+
+## Security
+
+What is in place, and what to know before you rely on it.
+
+- **Network.** Only Caddy publishes ports (80 and 443). The API and database are reachable only on the internal Docker network. Containers run as non-root, read-only, with all capabilities dropped and `no-new-privileges`. Container logs rotate, so they cannot fill the disk.
+- **Transport and headers.** Automatic HTTPS, HSTS (preload), a strict Content-Security-Policy (`frame-ancestors 'none'`, `object-src 'none'`, same-origin only), `nosniff`, referrer, permissions, cross-origin opener and resource policies, no `Server` or `X-Powered-By` banners. Caddy cuts off slow connections and caps request bodies at 12 MB.
+- **Authentication.** Passwords are 12 to 128 characters with all four character classes, hashed with PBKDF2. Five failed sign-ins lock an account for 15 minutes, and unknown accounts cost the same time as known ones. Sessions are HttpOnly, Secure, SameSite=Lax cookies. Sign-up is closed by default and can require an invite code.
+- **API protection.** Every `/api` route needs the API key, which only the Next.js server holds, and signed-in routes need a session. Every state-changing route also needs a custom request header (CSRF defence on top of SameSite) and is rate limited, as is the whole API (300 requests a minute per client). Clients are keyed on the address Caddy forwards, IPv6 clients on their /64 so rotating addresses does not dodge the limit, and server-rendered pages pass the visitor's address on so one visitor cannot exhaust everyone's allowance.
+- **No leaked details.** Production errors return a generic message with no stack trace. Swagger is development-only. Login and failure responses do not say which part was wrong. Outbound request URLs (which can contain webhook and ntfy secrets) are not written to the logs. Webhook and ntfy secrets and push keys are encrypted at rest and never returned by the API.
+- **Input and output.** Uploaded dependency files are size-capped and parsed with XML DTDs disabled, and only dependency names and versions are stored. Outbound alert calls are protected against SSRF (https only, private and link-local targets refused and re-checked at connect time, no redirects). Every external link is limited to http(s).
+- **Supply chain.** CI runs tests, type-check, lint and dependency audits, Dependabot opens weekly update PRs, and `api/Directory.Build.props` pins patched versions of transitive packages.
+
+Known limitations:
+
+- The Content-Security-Policy allows inline scripts (`'unsafe-inline'`) because Next.js emits inline bootstrap scripts; replacing it with nonces is a future change.
+- Sign-up says when an email is already registered, which lets someone check whether an address has an account. That only works while sign-up is open; keep it closed or invite-only if that matters to you.
+- There is no password reset yet. A user who forgets their password needs the operator to reset it.
+- Rate limits are held in memory, so they reset when the API restarts and apply per API instance.
+
+To report a vulnerability, contact the address in `CONTACT_EMAIL`.
 
 | Variable | Description |
 |---|---|

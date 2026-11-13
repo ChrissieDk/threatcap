@@ -1,4 +1,4 @@
-import { cookies } from "next/headers"
+import { cookies, headers as requestHeaders } from "next/headers"
 
 const API_BASE: string = process.env.API_URL ?? "http://localhost:5080"
 
@@ -24,6 +24,10 @@ export async function apiGet<T>(path: string): Promise<T> {
       throw new ApiError(0, "API_KEY is not configured")
     }
     const headers: Record<string, string> = { Authorization: `Bearer ${apiKey}` }
+    // Pass the visitor's address on (Caddy sets it) so the API rate-limits each client separately,
+    // rather than counting every server-rendered page against this server's own address.
+    const forwarded = (await requestHeaders()).get("x-forwarded-for")
+    if (forwarded) headers["X-Forwarded-For"] = forwarded
     const session = (await cookies())
       .getAll()
       .map((cookie) => `${cookie.name}=${cookie.value}`)

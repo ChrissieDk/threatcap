@@ -1,9 +1,17 @@
 # Production stack. Only Caddy publishes ports (80/443); everything else stays on the internal network.
 # Secrets come from ./.env on the server (never committed); see .env.production.example.
+x-logging: &logging
+  # Keep container logs from filling the disk.
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   postgres:
     image: postgres:17
     restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_DB: threatwatch
       POSTGRES_USER: threatwatch
@@ -21,6 +29,7 @@ services:
   api:
     build: ./api
     restart: unless-stopped
+    logging: *logging
     depends_on:
       postgres: { condition: service_healthy }
     environment:
@@ -32,6 +41,10 @@ services:
       Cors__Origin: https://${DOMAIN:?set DOMAIN}
       Alerts__WebBaseUrl: https://${DOMAIN}
       Alerts__PushSubject: mailto:${CONTACT_EMAIL:?set CONTACT_EMAIL}
+      # Retention starts in dry-run mode (logs what it would delete). Set RETENTION_DRY_RUN=false once the log looks right.
+      Retention__DryRun: ${RETENTION_DRY_RUN:-true}
+      # Optional, free: raises the NVD rate limit. https://nvd.nist.gov/developers/request-an-api-key
+      Nvd__ApiKey: ${NVD_API_KEY:-}
       Smtp__Host: ${SMTP_HOST:-}
       Smtp__Port: ${SMTP_PORT:-587}
       Smtp__Security: ${SMTP_SECURITY:-StartTls}
@@ -49,6 +62,7 @@ services:
   web:
     build: ./web
     restart: unless-stopped
+    logging: *logging
     depends_on: [api]
     environment:
       API_URL: http://api:5080
@@ -62,6 +76,7 @@ services:
   caddy:
     image: caddy:2
     restart: unless-stopped
+    logging: *logging
     ports:
       - "80:80"
       - "443:443"
