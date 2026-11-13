@@ -38,7 +38,7 @@ public static class IngestionServiceCollectionExtensions
         services.AddHttpClient<T>(client =>
         {
             client.BaseAddress = baseAddress;
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("Threatwatch/1.0");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("Peregrinet/1.0");
             client.Timeout = total + TimeSpan.FromMinutes(1);
         })
         .AddStandardResilienceHandler(options =>

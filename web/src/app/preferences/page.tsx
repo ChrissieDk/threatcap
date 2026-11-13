@@ -43,7 +43,7 @@ export default function PreferencesPage({
       <div>
         <h1 className="text-base font-semibold">Preferences</h1>
         <p className="text-muted-foreground mt-0.5 text-xs">
-          Choose how Threatwatch alerts you about technologies you follow.
+          Choose how Peregrinet alerts you about technologies you follow.
         </p>
       </div>
       <Suspense fallback={<Skeleton className="h-64 max-w-2xl" />}>

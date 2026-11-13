@@ -5,12 +5,12 @@ import {
   Boxes,
   FolderGit2,
   LayoutDashboard,
-  Radar,
   Rss,
   Settings,
   ShieldAlert,
   Zap,
 } from "lucide-react"
+import { LogoMark } from "@/components/brand/logo-mark"
 import { cn } from "@/lib/utils"
 
 export type NavItem = {
@@ -45,10 +45,10 @@ export function Brand() {
     <Link
       href="/"
       className="flex items-center gap-2 px-4 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-md"
-      aria-label="Threatwatch home"
+      aria-label="Peregrinet home"
     >
-      <Radar className="text-primary size-4" aria-hidden />
-      <span className="text-sm font-semibold tracking-tight">Threatwatch</span>
+      <LogoMark size={22} className="text-primary" />
+      <span className="text-sm font-semibold tracking-tight">Peregrinet</span>
     </Link>
   )
 }

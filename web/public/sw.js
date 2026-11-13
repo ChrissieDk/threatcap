@@ -1,4 +1,4 @@
-/* Threatwatch service worker: shows Web Push alerts and opens them on click. */
+/* Peregrinet service worker: shows Web Push alerts and opens them on click. */
 self.addEventListener("install", () => self.skipWaiting())
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()))
 
@@ -7,10 +7,10 @@ self.addEventListener("push", (event) => {
   try {
     data = event.data ? event.data.json() : {}
   } catch {
-    data = { title: "Threatwatch alert", body: event.data ? event.data.text() : "" }
+    data = { title: "Peregrinet alert", body: event.data ? event.data.text() : "" }
   }
   event.waitUntil(
-    self.registration.showNotification(data.title || "Threatwatch alert", {
+    self.registration.showNotification(data.title || "Peregrinet alert", {
       body: data.body || "",
       icon: "/favicon.ico",
       data: { url: data.url || "/" },

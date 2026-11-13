@@ -247,8 +247,8 @@ public class AlertServiceTests : IDisposable
 
         var setup = await _alerts.GetNtfySetupAsync(_userId, channel!.Id, default);
         Assert.NotNull(setup);
-        Assert.StartsWith("https://ntfy.sh/threatwatch-", setup.TopicUrl);
-        Assert.Equal(12 + 32, setup.Topic.Length);
+        Assert.StartsWith("https://ntfy.sh/peregrinet-", setup.TopicUrl);
+        Assert.Equal("peregrinet-".Length + 32, setup.Topic.Length);
         Assert.Null(await _alerts.GetNtfySetupAsync(Guid.NewGuid(), channel.Id, default));
     }
 

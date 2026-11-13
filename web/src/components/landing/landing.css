@@ -100,7 +100,7 @@ html, body { overflow-x: clip; }
 .lp-nav { position: sticky; top: 0; z-index: 50; background: var(--lp-paper-3); border-bottom: 1px solid var(--lp-rule); }
 .lp-nav__bar { display: flex; align-items: center; gap: var(--lp-space-lg); min-height: var(--lp-nav-h); }
 .lp-brand { display: inline-flex; align-items: center; gap: var(--lp-space-xs); font-family: var(--lp-font-display); font-weight: 500; font-size: var(--lp-text-title); letter-spacing: var(--lp-tracking-display); text-decoration: none; margin-right: auto; }
-.lp-brand svg { color: var(--lp-accent-text); }
+.lp-brand svg, .lp-brand > span[aria-hidden] { color: var(--lp-accent-text); }
 .lp-nav__links { display: flex; gap: var(--lp-space-lg); }
 .lp-nav__links a { color: var(--lp-muted); text-decoration: none; font-size: var(--lp-text-sm); padding: var(--lp-space-xs) 0; transition: color var(--lp-dur-short) var(--lp-ease-out); }
 .lp-nav__links a:hover { color: var(--lp-ink); }

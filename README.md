@@ -1,6 +1,6 @@
-# Threatwatch
+# Peregrinet
 
-Threatwatch is a free, self-hosted developer security intelligence dashboard. It ingests vulnerability advisories and vendor incident feeds from public sources, normalizes and de-duplicates them, scores and ranks them, and tells you what matters for the technologies and dependencies **you** actually use, in the app and through outbound alerts.
+Peregrinet is a free, self-hosted developer security intelligence dashboard. It ingests vulnerability advisories and vendor incident feeds from public sources, normalizes and de-duplicates them, scores and ranks them, and tells you what matters for the technologies and dependencies **you** actually use, in the app and through outbound alerts.
 
 No paid services are required. Everything runs on PostgreSQL, a .NET API and a Next.js frontend.
 
@@ -255,7 +255,25 @@ The production stack is `docker-compose.prod.yml`: Postgres, the API, the web ap
 
 ### Checklist
 
-1. **VM.** Create an Ubuntu VM with a reserved public IP, install Docker, enable automatic security updates, allow SSH only with keys (`PasswordAuthentication no`, `PermitRootLogin no`), and open only ports 22, 80 and 443 (in the cloud security list and the host firewall). Consider `fail2ban` for SSH.
+1. **VM.** Create a VM with a reserved public IP (Ubuntu 24.04 or Oracle Linux 9; both work), install Docker, enable automatic security updates, allow SSH only with keys (`PasswordAuthentication no`, `PermitRootLogin no`), and open only ports 22, 80 and 443 (in the cloud security list and the host firewall). Consider `fail2ban` for SSH. Oracle Cloud's free ARM machines are sometimes out of capacity; retry later or start with 1 OCPU and 6 GB.
+
+   On **Oracle Linux 9** (log in as `opc`):
+
+   ```sh
+   sudo dnf -y update && sudo dnf -y install dnf-automatic git
+   sudo sed -i 's/^apply_updates.*/apply_updates = yes/' /etc/dnf/automatic.conf
+   sudo systemctl enable --now dnf-automatic.timer
+
+   sudo firewall-cmd --permanent --add-service=http --add-service=https --add-port=443/udp
+   sudo firewall-cmd --reload
+
+   sudo dnf -y install dnf-plugins-core
+   sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+   sudo dnf -y install docker-ce docker-ce-cli containerd.io docker-compose-plugin
+   sudo systemctl enable --now docker && sudo usermod -aG docker opc   # log out and back in afterwards
+   ```
+
+   On Ubuntu, use `apt`, `unattended-upgrades` and `ufw` instead, and the `ubuntu` user.
 2. **DNS.** Add an `A` record for your domain (for example `peregrinet.com`) pointing to the VM's IP, and one for `www` if you want the redirect to the main address. Remove any `AAAA` record or point it at the VM. If the DNS is on Cloudflare, set the records to **DNS only** (grey cloud); see the note below on proxying. Check with `dig +short peregrinet.com` before the first start, since certificates cannot be issued until the name resolves to the server.
 3. **Code.** `git clone` the repository onto the VM.
 4. **Configure.** `cp .env.production.example .env`, set `DOMAIN` and `CONTACT_EMAIL`, fill in the secrets (`openssl rand -base64 32` for `POSTGRES_PASSWORD` and `API_KEY`), and `chmod 600 .env`.

@@ -254,7 +254,7 @@ export function FollowTile() {
 
 type Rule = { pkg: string; from: string; fix: string; ids: string[] }
 
-// Real advisories from the Threatwatch instance this page was built from: affected from `from` up to, not including, `fix`.
+// Real advisories from the Peregrinet instance this page was built from: affected from `from` up to, not including, `fix`.
 const RULES: Rule[] = [
   { pkg: "axios", from: "1.12.1", fix: "1.16.0", ids: ["CVE-2026-44494", "CVE-2026-44488"] },
   { pkg: "vite", from: "7.1.2", fix: "7.3.2", ids: ["CVE-2026-39364"] },

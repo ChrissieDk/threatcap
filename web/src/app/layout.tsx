@@ -29,8 +29,8 @@ const atkinsonMono = Atkinson_Hyperlegible_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Threatwatch",
-    template: "%s · Threatwatch",
+    default: "Peregrinet",
+    template: "%s · Peregrinet",
   },
   description: "Developer security intelligence dashboard",
 }

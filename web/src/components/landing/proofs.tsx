@@ -64,7 +64,7 @@ export function HeroProof() {
   return (
     <Panel
       className="lp-hero-ui"
-      label="Threatwatch listing four high-severity advisories that hit a project, each with the installed version struck through and the version that fixes it"
+      label="Peregrinet listing four high-severity advisories that hit a project, each with the installed version struck through and the version that fixes it"
     >
       <div className="lp-ui__head">
         <h3>Affecting your projects</h3>
@@ -150,7 +150,7 @@ export function IncidentTicker() {
 /** The commands from the deploy docs, typed once as the tile scrolls into view. */
 export function Terminal() {
   return (
-    <pre className="lp-term" tabIndex={0} aria-label="Commands to start Threatwatch" data-reveal="type">
+    <pre className="lp-term" tabIndex={0} aria-label="Commands to start Peregrinet" data-reveal="type">
       <code>
         <span className="lp-term__line" style={{ ["--i" as string]: 0 }}>cp .env.production.example .env</span>
         <span className="lp-term__line" style={{ ["--i" as string]: 1 }}>chmod 600 .env</span>

@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Radar } from "lucide-react"
+import { LogoMark } from "@/components/brand/logo-mark"
 import "./landing.css"
 import { FollowTile, MotionRoot, ScrollBar, Story, TryIt } from "./motion"
 import { HeroProof, IncidentTicker, TableRows, Terminal } from "./proofs"
@@ -10,9 +10,9 @@ export function Landing({ stats }: { stats?: PublicStats | null }) {
     <MotionRoot>
       <header className="lp-nav">
         <div className="lp-container lp-nav__bar">
-          <Link href="/" className="lp-brand" aria-label="Threatwatch home">
-            <Radar size={22} aria-hidden />
-            <span>Threatwatch</span>
+          <Link href="/" className="lp-brand" aria-label="Peregrinet home">
+            <LogoMark size={28} />
+            <span>Peregrinet</span>
           </Link>
           <nav className="lp-nav__links" aria-label="Page sections">
             <a href="#how">How it works</a>
@@ -34,7 +34,7 @@ export function Landing({ stats }: { stats?: PublicStats | null }) {
             <div className="lp-hero__text">
               <h1>Stop finding CVEs on Twitter.</h1>
               <p className="lp-lead">
-                Threatwatch ranks every advisory against the packages you actually run.
+                Peregrinet ranks every advisory against the packages you actually run.
               </p>
               <div className="lp-actions">
                 <Link href="/register" className="lp-btn lp-btn--primary">Create account</Link>
