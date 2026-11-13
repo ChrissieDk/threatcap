@@ -3,8 +3,9 @@ import { Radar } from "lucide-react"
 import "./landing.css"
 import { FollowTile, MotionRoot, ScrollBar, Story, TryIt } from "./motion"
 import { HeroProof, IncidentTicker, TableRows, Terminal } from "./proofs"
+import type { PublicStats } from "@/lib/api/public-stats"
 
-export function Landing() {
+export function Landing({ stats }: { stats?: PublicStats | null }) {
   return (
     <MotionRoot>
       <header className="lp-nav">
@@ -40,6 +41,12 @@ export function Landing() {
                 <Link href="/login" className="lp-btn">Sign in</Link>
               </div>
               <p className="lp-terms">Free to run. Your lockfile is read, never stored.</p>
+              {stats && stats.vulnerabilitiesPickedUp > 0 && (
+                <p className="lp-pickup">
+                  <strong className="lp-measured">{stats.vulnerabilitiesPickedUp.toLocaleString("en-GB")}</strong>{" "}
+                  vulnerabilities picked up so far
+                </p>
+              )}
             </div>
             <HeroProof />
           </div>

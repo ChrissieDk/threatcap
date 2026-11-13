@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import { Landing } from "@/components/landing/landing"
 import { OverviewContent } from "@/components/overview/overview-content"
 import { hasSessionCookie } from "@/lib/auth"
+import { getPublicStats } from "@/lib/api/public-stats"
 
 export default function Page({
   searchParams,
@@ -19,7 +20,7 @@ export default function Page({
 async function Home({ searchParams }: { searchParams: Promise<{ scope?: string }> }) {
   const signedIn = hasSessionCookie((await cookies()).getAll())
   if (!signedIn) {
-    return <Landing />
+    return <Landing stats={await getPublicStats()} />
   }
   const { scope } = await searchParams
   return <OverviewContent scope={scope} />

@@ -175,7 +175,7 @@ Apply pending migrations with `dotnet ef database update` before starting the AP
 |---|---|
 | Overview | Summary counts, daily activity and project findings |
 | Act now | Highest-priority vulnerabilities in your stack over the last 7 days |
-| Vulnerabilities | Searchable, filterable explorer plus a detail page per advisory |
+| Vulnerabilities | Searchable, filterable explorer (including "High and above") plus a detail page per advisory |
 | Incidents | Vendor outages and security incidents for the technologies you follow (last 30 days; unresolved ones always shown) |
 | Technologies / Following | The catalog, and what you follow |
 | Projects | Your dependency files and the advisories that hit your exact versions |
@@ -192,10 +192,20 @@ The bell in the header is derived at read time from your follows, your alert rul
 
 ## Severity and priority scoring
 
-- **CVSS.** CVSS v3.0 and v3.1 base scores are calculated exactly from the vector string (including the 3.1 round-up rule). Severity bands are Critical (9.0+), High (7.0+), Medium (4.0+), Low and None.
-- **Fallbacks.** If an advisory has no usable v3 vector, a plain numeric score is used, then the label from the source (for example GitHub's `database_specific.severity`). CVSS v4 vectors cannot be scored locally yet, so a v4-only advisory without a label stays **Unknown**.
+- **CVSS.** CVSS v3.0 and v3.1 base scores are calculated exactly from the vector string (including the 3.1 round-up rule). CVSS v4.0 is scored with a port of FIRST's reference algorithm (MacroVector lookup plus severity distance). When an advisory carries both, v3 is preferred. Severity bands are Critical (9.0+), High (7.0+), Medium (4.0+), Low and None.
+- **Fallbacks.** If an advisory has no usable v3 vector, a plain numeric score is used, then the label from the source (for example GitHub's `database_specific.severity`). An advisory whose only rating is an incomplete v4 vector and has no label stays **Unknown**. NVD can fill in a missing score later (see below).
 - **Priority score.** `base x (1 + EPSS) x (2 if known-exploited)`, where `base` is the CVSS score, else the midpoint of the severity band, else 7.0 for a known-exploited advisory with no rating. Advisories are sorted by this score in Act now.
-- **Repair.** Earlier versions stored the CVSS version number as the score, so nothing ever reached High. A one-time repair (`repair.severity.v1`) runs at API start before ingestion: it rescored v3 rows from their vectors, clears bogus v4 scores, recomputes priorities and resets the OSV watermark so labels are re-read on the next sync.
+- **Repair.** Earlier versions stored the CVSS version number as the score, so nothing ever reached High. One-time repairs run at API start before ingestion: `repair.severity.v1` rescored v3 rows from their vectors, and `repair.severity.v2` scores v4 rows from their vectors (v1 used to clear them). Both recompute priorities.
+
+**NVD enrichment.** Advisories that arrive without a CVSS score, such as CVEs first seen through CISA KEV, are looked up on the NVD API (one request per CVE, paced to NVD's public rate limit) and rated from NVD's v3.1, v3.0 or v4.0 score. NVD never overwrites an existing score. A rotating cursor works through candidates newest to oldest, so CVEs NVD has not analysed yet cannot starve the rest.
+
+| Variable | Default | Description |
+|---|---|---|
+| `Nvd__Enabled` | `true` | Turn NVD enrichment off. |
+| `Nvd__IntervalMinutes` | `60` | Minutes between passes. |
+| `Nvd__MaxPerRun` | `20` | CVEs looked up per pass (about 2 minutes without a key). |
+| `Nvd__LookbackDays` | `30` | Only advisories modified within this window are considered. |
+| `Nvd__ApiKey` | none | Optional free [NVD API key](https://nvd.nist.gov/developers/request-an-api-key); raises the limit from 5 to 50 requests per 30 seconds. |
 
 ## Data retention
 
@@ -237,6 +247,7 @@ In the Development environment the OpenAPI document is at http://localhost:5080/
 | Alerts | `alerts`, `alerts/preferences`, `alerts/channels` (+ `push`, `{id}`, `{id}/setup`, `{id}/test`) |
 | Notifications | `notifications`, `notifications/read` |
 | Ingestion and health | `ingestion/sync` (GET, POST), `health/providers` |
+| Stats | `stats/public` (landing-page counter; API key only, no session) |
 
 ## Deploying (free, self-hosted)
 
@@ -258,6 +269,7 @@ Cloudflare's free plan (DDoS protection, WAF, tunnel) would add a layer in front
 |---|---|
 | `Auth__RegistrationOpen` | Allow new accounts (default `true`; the production compose file defaults to `false`). |
 | `Auth__InviteCode` | If set, sign-up requires this code. |
+| `Stats__CountSince` | Optional start date (`yyyy-MM-dd`) for the landing page's "vulnerabilities picked up so far" counter. Optional: leave unset to count everything. |
 | `Database__MigrateOnStartup` | Apply EF migrations when the API starts (default `false`). |
 | `Cors__Origin` | Public web origin (default `http://localhost:3000`). |
 
@@ -273,6 +285,7 @@ Add a migration with `dotnet ef migrations add <Name> --project src/Threatwatch.
 
 ## Data sources
 
+- [NVD](https://nvd.nist.gov/developers/vulnerabilities) (CVE API 2.0): fills in the CVSS score for recent CVEs that arrived unrated (for example first seen via CISA KEV). Free, no key needed; see below.
 - [OSV.dev](https://osv.dev/): open vulnerability database. Each sync reads advisories modified in the last 90 days (configurable).
 - [CISA Known Exploited Vulnerabilities (KEV) Catalog](https://www.cisa.gov/known-exploited-vulnerabilities-catalog): vulnerabilities known to be actively exploited in the wild.
 - [EPSS](https://www.first.org/epss/): daily exploit-probability scores from FIRST.
@@ -280,11 +293,9 @@ Add a migration with `dotnet ef migrations add <Name> --project src/Threatwatch.
 
 ## Roadmap
 
-Implemented: ingestion (KEV, OSV, EPSS, status pages), scoring and prioritisation, accounts, follows, project dependency matching, outbound alerts, notifications, retention.
+Implemented: ingestion (KEV, OSV, EPSS, NVD enrichment, status pages), CVSS v3 and v4 scoring, scoring and prioritisation, accounts, follows, project dependency matching, outbound alerts, notifications, retention.
 
 Not implemented yet:
 
-- CVSS v4 base-score calculation (v4-only advisories without a source label stay Unknown)
-- NVD and GitHub Advisory enrichment
+- GitHub Advisory enrichment
 - Discussions and comments on advisories
-- A "High and above" severity filter in the vulnerability explorer (the current filter matches one level exactly)

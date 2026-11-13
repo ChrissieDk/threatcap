@@ -49,13 +49,15 @@ public sealed class OsvRecord
 
     /// <summary>
     /// Best severity for this advisory. A CVSS v3 vector is scored exactly; otherwise the advisory's
-    /// own label (GitHub's "severity": LOW/MODERATE/HIGH/CRITICAL) sets the band. CVSS v4 vectors are
-    /// kept for display but cannot be scored here, so they never produce a number.
+    /// own label (GitHub's "severity": LOW/MODERATE/HIGH/CRITICAL) sets the band. A v3 score is preferred
+    /// over a v4 one (v3 is the long-established basis for existing bands); a v4-only advisory is scored
+    /// from its vector.
     /// </summary>
     public (decimal? Score, string? Vector, Severity Band, string Source)? BestSeverity()
     {
         decimal? v3Score = null;
         string? v3Vector = null;
+        decimal? v4Score = null;
         string? v4Vector = null;
         decimal? plainScore = null;
 
@@ -69,7 +71,9 @@ public sealed class OsvRecord
             }
             else if (vector is not null && vector.StartsWith("CVSS:4", StringComparison.OrdinalIgnoreCase))
             {
-                v4Vector ??= vector;
+                var score = CvssV4Calculator.ScoreV4(vector);
+                if (score is { } s && (v4Score is null || s > v4Score)) (v4Score, v4Vector) = (s, vector);
+                else v4Vector ??= vector;
             }
             else if (sev.ScoreNumber is { } n and >= 0 and <= 10 && (plainScore is null || n > plainScore))
             {
@@ -78,6 +82,7 @@ public sealed class OsvRecord
         }
 
         if (v3Score is { } exact) return (exact, v3Vector, CvssParser.Band(exact), "CVSS_V3");
+        if (v4Score is { } v4) return (v4, v4Vector, CvssParser.Band(v4), "CVSS_V4");
         if (plainScore is { } plain) return (plain, null, CvssParser.Band(plain), "CVSS");
 
         var label = LabelSeverity();

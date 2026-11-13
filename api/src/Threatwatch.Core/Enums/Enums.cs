@@ -90,6 +90,7 @@ public enum IngestionSource
     CisaKev = 1,
     Epss = 2,
     StatusPage = 3,
+    Nvd = 4,
 }
 
 public enum AlertChannelType

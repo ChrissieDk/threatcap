@@ -114,6 +114,8 @@ html, body { overflow-x: clip; }
 .lp-hero__grid { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: var(--lp-space-3xl); align-items: center; }
 .lp-hero__text { display: grid; gap: var(--lp-space-lg); justify-items: start; }
 .lp-terms { font-size: var(--lp-text-sm); color: var(--lp-muted); }
+.lp-pickup { font-size: var(--lp-text-sm); color: var(--lp-muted); }
+.lp-pickup strong { color: var(--lp-accent-text); font-size: var(--lp-text-lg, 1.125rem); font-weight: 700; }
 @media (max-width: 60rem) { .lp-hero { min-height: 0; } .lp-hero__grid { grid-template-columns: minmax(0, 1fr); gap: var(--lp-space-xl); } }
 
 /* Panels built from the product's own rows */

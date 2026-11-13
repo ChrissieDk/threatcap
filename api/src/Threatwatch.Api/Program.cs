@@ -140,6 +140,7 @@ builder.Services.AddScoped<TechnologyQueryService>();
 builder.Services.AddScoped<FollowService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<IncidentQueryService>();
+builder.Services.AddScoped<PublicStatsService>();
 builder.Services.AddScoped<Threatwatch.Core.Projects.ProjectService>();
 
 // Ingestion
@@ -162,6 +163,8 @@ builder.Services.Configure<EpssOptions>(builder.Configuration.GetSection("Epss")
 builder.Services.AddSecurityDataSource<OsvDataSource>(
     new Uri("https://storage.googleapis.com/"),
     attemptTimeout: TimeSpan.FromMinutes(2));
+builder.Services.AddSecurityDataSource<NvdDataSource>(new Uri("https://services.nvd.nist.gov/"));
+builder.Services.Configure<NvdOptions>(builder.Configuration.GetSection("Nvd"));
 builder.Services.Configure<OsvOptions>(builder.Configuration.GetSection("Osv"));
 builder.Services.Configure<IngestionOptions>(builder.Configuration.GetSection("Ingestion"));
 builder.Services.AddSingleton<IngestionRunner>();
