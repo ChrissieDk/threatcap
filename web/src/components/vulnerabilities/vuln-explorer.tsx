@@ -54,6 +54,7 @@ export function VulnExplorer() {
 
   const search = param(searchParams, "search")
   const severity = param(searchParams, "severity")
+  const minSeverity = param(searchParams, "minSeverity")
   const ecosystem = param(searchParams, "ecosystem")
   const kev = param(searchParams, "kev")
   const fix = param(searchParams, "fix")
@@ -69,7 +70,7 @@ export function VulnExplorer() {
     setSearchInput(search)
   }
 
-  const queryKey = [search, severity, ecosystem, kev, fix, followingOnly, tech, page, sort].join("|")
+  const queryKey = [search, severity, minSeverity, ecosystem, kev, fix, followingOnly, tech, page, sort].join("|")
   const [result, setResult] = useState<{
     key: string
     data: VulnerabilityListResponse | null
@@ -104,6 +105,7 @@ export function VulnExplorer() {
     const sp = new URLSearchParams()
     if (search) sp.set("search", search)
     if (severity) sp.set("severity", severity)
+    else if (minSeverity) sp.set("minSeverity", minSeverity)
     if (ecosystem) sp.set("ecosystem", ecosystem)
     if (kev) sp.set("kev", kev)
     if (fix) sp.set("fix", fix)
@@ -136,7 +138,7 @@ export function VulnExplorer() {
     return () => {
       cancelled = true
     }
-  }, [queryKey, router, search, severity, ecosystem, kev, fix, followingOnly, tech, page, sort])
+  }, [queryKey, router, search, severity, minSeverity, ecosystem, kev, fix, followingOnly, tech, page, sort])
 
   const data = result.key === queryKey ? result.data : null
 
@@ -279,14 +281,24 @@ export function VulnExplorer() {
           className="w-56"
         />
         <Select
-          value={severity || "all"}
-          onValueChange={(v) => replaceParams({ severity: v === "all" ? "" : v })}
+          value={severity || (minSeverity ? `min:${minSeverity}` : "all")}
+          onValueChange={(v) =>
+            replaceParams(
+              v === "all"
+                ? { severity: "", minSeverity: "" }
+                : v.startsWith("min:")
+                  ? { severity: "", minSeverity: v.slice(4) }
+                  : { severity: v, minSeverity: "" }
+            )
+          }
         >
-          <SelectTrigger aria-label="Filter by severity" className="w-28">
+          <SelectTrigger aria-label="Filter by severity" className="w-36">
             <SelectValue placeholder="Severity" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All severities</SelectItem>
+            <SelectItem value="min:High">High and above</SelectItem>
+            <SelectItem value="min:Medium">Medium and above</SelectItem>
             {["Critical", "High", "Medium", "Low", "Unknown"].map((s) => (
               <SelectItem key={s} value={s}>
                 {s}

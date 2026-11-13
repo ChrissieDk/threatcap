@@ -1,0 +1,18 @@
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Never trust client-supplied address headers; Caddy sets X-Forwarded-For from the socket.
+	reverse_proxy web:3000 {
+		header_up -CF-Connecting-IP
+		header_up -X-Real-IP
+	}
+
+	request_body {
+		max_size 12MB
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

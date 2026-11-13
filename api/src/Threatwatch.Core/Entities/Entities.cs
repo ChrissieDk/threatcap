@@ -232,6 +232,20 @@ public class Project
     public ICollection<ProjectDependency> Dependencies { get; set; } = new List<ProjectDependency>();
 }
 
+/// <summary>A user's decision about one vulnerability in one project. Absent means the finding is open.</summary>
+public class FindingTriage
+{
+    public Guid Id { get; set; }
+    public Guid ProjectId { get; set; }
+    public Guid VulnerabilityId { get; set; }
+    public TriageStatus Status { get; set; }
+    public DateTimeOffset? SnoozedUntil { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    public Project Project { get; set; } = null!;
+    public Vulnerability Vulnerability { get; set; } = null!;
+}
+
 /// <summary>One dependency as read from one source file; merged across files when read.</summary>
 public class ProjectDependency
 {

@@ -417,6 +417,7 @@ public class AlertService(
             .ToListAsync(ct);
 
         var projectDepsByUser = await ProjectService.LoadMergedAsync(db, userIds, ct);
+        var triaged = await TriageService.ActiveAsync(db, userIds, ct);
 
         var created = 0;
         foreach (var userId in userIds)
@@ -454,6 +455,7 @@ public class AlertService(
                 {
                     foreach (var dep in depIndex[(p.Ecosystem, p.PackageName)])
                     {
+                        if (triaged.ContainsKey((dep.ProjectId, v.Id))) continue;
                         var check = OsvRangeEvaluator.Evaluate(p.Ecosystem, p.AffectedRanges, dep.Version);
                         if (check.Verdict != RangeVerdict.Affected) continue;
                         reason = $"affects {dep.ProjectName}: {dep.DisplayName} {dep.Version}"

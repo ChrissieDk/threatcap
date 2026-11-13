@@ -13,14 +13,15 @@ namespace Threatwatch.Ingestion.Workers;
 /// One-time repair for advisories stored before CVSS scores were calculated correctly: the old
 /// parser stored the CVSS version number (3.1 / 4.0) as the score, so nothing was ever High or
 /// Critical. Runs at startup, before ingestion starts, and records completion so it only runs once.
-/// V3 rows are rescored from their vector; V4 rows cannot be scored locally, so their bogus value is
-/// cleared and the OSV watermark is reset so the next sync re-reads their labels from the source.
+/// V3 rows are rescored from their vector. V4 rows were first cleared (v4 could not be scored locally)
+/// and the OSV watermark reset; a second pass (v2) scores them from their vector now that v4 is supported.
 /// </summary>
 public sealed class SeverityRepairService(
     IServiceScopeFactory scopeFactory,
     ILogger<SeverityRepairService> logger) : IHostedService
 {
     public const string SettingKey = "repair.severity.v1";
+    public const string SettingKeyV4 = "repair.severity.v2";
     private const int BatchSize = 1000;
 
     public async Task StartAsync(CancellationToken ct)
@@ -40,12 +41,19 @@ public sealed class SeverityRepairService(
 
     public async Task RunAsync(CancellationToken ct)
     {
+        await RunPassAsync(SettingKey, rescoreV3: true, ct);
+        await RunPassAsync(SettingKeyV4, rescoreV3: false, ct);
+    }
+
+    private async Task RunPassAsync(string settingKey, bool rescoreV3, CancellationToken ct)
+    {
         await using var scope = scopeFactory.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ThreatwatchDbContext>();
-        if (await db.AppSettings.AnyAsync(s => s.Key == SettingKey, ct)) return;
+        if (await db.AppSettings.AnyAsync(s => s.Key == settingKey, ct)) return;
 
         var fixedV3 = 0;
         var clearedV4 = 0;
+        var scoredV4 = 0;
         Guid? last = null;
         while (true)
         {
@@ -59,17 +67,19 @@ public sealed class SeverityRepairService(
 
             foreach (var v in batch)
             {
-                if (v.CvssSource == "CVSS_V3" && CvssCalculator.ScoreV3(v.CvssVector) is { } score)
+                if (rescoreV3 && v.CvssSource == "CVSS_V3" && CvssCalculator.ScoreV3(v.CvssVector) is { } score)
                 {
                     v.CvssScore = score;
-                    v.Severity = score switch { >= 9.0m => Severity.Critical, >= 7.0m => Severity.High, >= 4.0m => Severity.Medium, > 0m => Severity.Low, _ => Severity.Unknown };
+                    v.Severity = Band(score);
                     fixedV3++;
                 }
                 else if (v.CvssSource == "CVSS_V4")
                 {
-                    v.CvssScore = null;
-                    v.Severity = Severity.Unknown;
-                    clearedV4++;
+                    var v4 = CvssV4Calculator.ScoreV4(v.CvssVector);
+                    v.CvssScore = v4;
+                    v.Severity = v4 is { } s4 ? Band(s4) : Severity.Unknown;
+                    if (v4 is null) clearedV4++;
+                    else scoredV4++;
                 }
 
                 v.PriorityScore = PriorityScoring.Compute(v.CvssScore, v.Severity, v.EpssScore, v.IsKnownExploited);
@@ -79,12 +89,20 @@ public sealed class SeverityRepairService(
             db.ChangeTracker.Clear();
         }
 
-        // Force the next OSV sync to re-read the retention window so V4-only advisories regain their labels.
-        var osv = await db.IngestionStates.FirstOrDefaultAsync(s => s.Source == IngestionSource.Osv, ct);
-        if (osv is not null) osv.Watermark = null;
+        // Force the next OSV sync to re-read the retention window so unscorable V4 advisories regain their labels.
+        if (clearedV4 > 0)
+        {
+            var osv = await db.IngestionStates.FirstOrDefaultAsync(s => s.Source == IngestionSource.Osv, ct);
+            if (osv is not null) osv.Watermark = null;
+        }
 
-        db.AppSettings.Add(new AppSetting { Key = SettingKey, ProtectedValue = "done", UpdatedAt = DateTimeOffset.UtcNow });
+        db.AppSettings.Add(new AppSetting { Key = settingKey, ProtectedValue = "done", UpdatedAt = DateTimeOffset.UtcNow });
         await db.SaveChangesAsync(ct);
-        logger.LogInformation("Severity repair complete: {V3} rescored from vectors, {V4} v4 scores cleared for re-ingest.", fixedV3, clearedV4);
+        logger.LogInformation(
+            "Severity repair {Key} complete: {V3} v3 rescored, {Scored} v4 scored from vectors, {Cleared} v4 cleared for re-ingest.",
+            settingKey, fixedV3, scoredV4, clearedV4);
     }
+
+    private static Severity Band(decimal score) =>
+        score switch { >= 9.0m => Severity.Critical, >= 7.0m => Severity.High, >= 4.0m => Severity.Medium, > 0m => Severity.Low, _ => Severity.Unknown };
 }

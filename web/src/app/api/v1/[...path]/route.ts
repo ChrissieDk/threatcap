@@ -49,6 +49,7 @@ async function proxyRequest(
   const browserRequest = request.headers.get("x-threatwatch-request")
   if (browserRequest) headers.set("X-Threatwatch-Request", browserRequest)
 
+  // Set by the reverse proxy (Caddy overwrites any client-supplied value).
   const forwarded = request.headers.get("x-forwarded-for")
   if (forwarded) headers.set("X-Forwarded-For", forwarded)
 

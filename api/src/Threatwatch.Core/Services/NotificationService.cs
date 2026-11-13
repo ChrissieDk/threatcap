@@ -62,6 +62,7 @@ public class NotificationService(ThreatwatchDbContext db)
             .Select(f => f.Technology)
             .ToListAsync(ct);
         var deps = (await ProjectService.LoadMergedAsync(db, [userId], ct)).GetValueOrDefault(userId) ?? [];
+        var triaged = await TriageService.ActiveAsync(db, [userId], ct);
         if (follows.Count == 0 && deps.Count == 0)
         {
             return Empty();
@@ -110,6 +111,7 @@ public class NotificationService(ThreatwatchDbContext db)
             {
                 foreach (var dep in depIndex[(p.Ecosystem, p.PackageName)])
                 {
+                    if (triaged.ContainsKey((dep.ProjectId, vuln.Id))) continue;
                     var check = OsvRangeEvaluator.Evaluate(p.Ecosystem, p.AffectedRanges, dep.Version);
                     if (check.Verdict != RangeVerdict.Affected) continue;
                     reason = $"Affects {dep.ProjectName}: {dep.DisplayName} {dep.Version}"

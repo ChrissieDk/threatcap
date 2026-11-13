@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -18,7 +18,26 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const [displayName, setDisplayName] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const [inviteCode, setInviteCode] = useState("")
+  const [signup, setSignup] = useState<{ open: boolean; inviteRequired: boolean }>({
+    open: true,
+    inviteRequired: false,
+  })
   const isRegister = mode === "register"
+
+  useEffect(() => {
+    if (!isRegister) return
+    let cancelled = false
+    fetch("/api/v1/auth/registration")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body: { open: boolean; inviteRequired: boolean } | null) => {
+        if (body && !cancelled) setSignup(body)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [isRegister])
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -41,6 +60,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           email,
           password,
           displayName: isRegister ? displayName : undefined,
+          inviteCode: isRegister && signup.inviteRequired ? inviteCode : undefined,
         }),
       })
 
@@ -71,7 +91,27 @@ export function AuthForm({ mode }: { mode: Mode }) {
             : "Sign in with your email and password."}
         </p>
 
+        {isRegister && !signup.open && (
+          <p role="status" className="text-muted-foreground mt-3 text-xs">
+            Sign-up is currently closed.
+          </p>
+        )}
+
         <div className="mt-5 flex flex-col gap-3">
+          {isRegister && signup.inviteRequired && (
+            <label className="flex flex-col gap-1 text-xs">
+              Invite code
+              <Input
+                required
+                value={inviteCode}
+                onChange={(event) => setInviteCode(event.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+                maxLength={128}
+                className="h-9 text-sm"
+              />
+            </label>
+          )}
           {isRegister && (
             <label className="flex flex-col gap-1 text-xs">
               Display name
@@ -138,7 +178,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           </p>
         )}
 
-        <Button type="submit" className="mt-5 h-9 w-full text-sm" disabled={pending}>
+        <Button type="submit" className="mt-5 h-9 w-full text-sm" disabled={pending || (isRegister && !signup.open)}>
           {pending ? "Please wait…" : isRegister ? "Create account" : "Sign in"}
         </Button>
 

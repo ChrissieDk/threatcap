@@ -13,6 +13,7 @@ public class VulnerabilitiesController(VulnerabilityQueryService queries) : Cont
     public async Task<IActionResult> List(
         [FromQuery] string? search = null,
         [FromQuery] string? severity = null,
+        [FromQuery] string? minSeverity = null,
         [FromQuery] string? ecosystem = null,
         [FromQuery] bool? kev = null,
         [FromQuery] bool? fix = null,
@@ -52,6 +53,13 @@ public class VulnerabilitiesController(VulnerabilityQueryService queries) : Cont
                 $"'{severity}' is not a valid severity (Critical|High|Medium|Low|Unknown)."));
         }
 
+        if (!string.IsNullOrWhiteSpace(minSeverity)
+            && (!Enum.TryParse<Severity>(minSeverity, ignoreCase: true, out var min) || min == Severity.Unknown))
+        {
+            return BadRequest(ApiError.Validation(
+                $"'{minSeverity}' is not a valid minimum severity (Critical|High|Medium|Low)."));
+        }
+
         if (!string.IsNullOrWhiteSpace(ecosystem)
             && !Enum.TryParse<Ecosystem>(ecosystem, ignoreCase: true, out _))
         {
@@ -66,7 +74,7 @@ public class VulnerabilitiesController(VulnerabilityQueryService queries) : Cont
         }
 
         var result = await queries.ListAsync(
-            search, severity, ecosystem, kev, fix, fromDate, toDate, page, pageSize, sort,
+            search, severity, minSeverity, ecosystem, kev, fix, fromDate, toDate, page, pageSize, sort,
             following, tech, CurrentUser.Id(User), ct);
         return Ok(result);
     }

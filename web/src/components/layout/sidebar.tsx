@@ -5,7 +5,6 @@ import {
   Boxes,
   FolderGit2,
   LayoutDashboard,
-  MessagesSquare,
   Radar,
   Rss,
   Settings,
@@ -28,7 +27,6 @@ export const NAV_SECTIONS: Array<{ label: string; items: NavItem[] }> = [
       { href: "/act-now", label: "Act now", icon: Zap },
       { href: "/vulnerabilities", label: "Vulnerabilities", icon: ShieldAlert },
       { href: "/incidents", label: "Incidents", icon: Activity },
-      { href: "/discussions", label: "Discussions", icon: MessagesSquare },
     ],
   },
   {

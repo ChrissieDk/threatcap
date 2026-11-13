@@ -7,12 +7,22 @@ import { Brand, SidebarNav } from "@/components/layout/sidebar"
 import { GlobalSearch } from "@/components/layout/global-search"
 import { SetupBanner } from "@/components/layout/setup-banner"
 import { NotificationBell } from "@/components/layout/notification-bell"
+import { OnboardingTour, TourButton } from "@/components/onboarding/tour"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { endSession } from "@/lib/auth"
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  signedIn,
+}: {
+  children: React.ReactNode
+  signedIn: boolean
+}) {
   const pathname = usePathname()
+  if (!signedIn && pathname === "/") {
+    return <>{children}</>
+  }
   if (pathname === "/login" || pathname === "/register" || pathname === "/verify-email") {
     return <>{children}</>
   }
@@ -32,6 +42,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="min-w-0 flex-1">
               <GlobalSearch />
             </div>
+            <TourButton />
             <NotificationBell />
             <AccountMenu />
           </div>
@@ -41,6 +52,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+      <OnboardingTour />
     </div>
   )
 }

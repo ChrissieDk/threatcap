@@ -1,0 +1,4 @@
+**/bin
+**/obj
+**/data-protection-keys
+**/appsettings.*.local.json

@@ -90,6 +90,7 @@ public enum IngestionSource
     CisaKev = 1,
     Epss = 2,
     StatusPage = 3,
+    Nvd = 4,
 }
 
 public enum AlertChannelType
@@ -110,4 +111,12 @@ public enum AlertItemKind
 {
     Vulnerability = 0,
     Incident = 1,
+}
+
+/// <summary>How a user has dealt with a finding in one project. No row means the finding is open.</summary>
+public enum TriageStatus
+{
+    Acknowledged = 0,
+    Snoozed = 1,
+    Ignored = 2,
 }

@@ -231,6 +231,8 @@ export type ProjectSummary = {
   updatedAt: string
 }
 
+export type TriageStatus = "Acknowledged" | "Snoozed" | "Ignored"
+
 export type ProjectFinding = {
   vulnerabilityId: string
   canonicalId: string
@@ -247,6 +249,8 @@ export type ProjectFinding = {
   isDirect: boolean
   isDev: boolean
   fixedIn: string | null
+  triage: TriageStatus | null
+  snoozedUntil: string | null
 }
 
 export type ProjectDependency = {
